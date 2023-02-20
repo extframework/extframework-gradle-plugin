@@ -126,8 +126,6 @@ gradlePlugin {
 
 allprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
-//    apply(plugin = "maven-publish")
-//    apply(plugin = "org.jetbrains.dokka")
 
     configurations.all {
         resolutionStrategy.cacheChangingModulesFor(0, "seconds")
@@ -150,6 +148,28 @@ allprojects {
             }
         }
         mavenLocal()
+    }
+
+    publishing {
+        repositories {
+            if (!project.hasProperty("maven-user") || !project.hasProperty("maven-pass")) return@repositories
+
+            maven {
+                val repo = if (project.findProperty("isSnapshot") == "true") "snapshots" else "releases"
+
+                isAllowInsecureProtocol = true
+
+                url = uri("http://maven.yakclient.net/$repo")
+
+                credentials {
+                    username = project.findProperty("maven-user") as String
+                    password = project.findProperty("maven-pass") as String
+                }
+                authentication {
+                    create<BasicAuthentication>("basic")
+                }
+            }
+        }
     }
 
     dependencies {
