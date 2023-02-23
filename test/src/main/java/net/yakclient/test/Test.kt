@@ -13,15 +13,15 @@ fun main(args: Array<String>) {
     println("YAY")
 }
 
-@Mixin("asdfasdf")
-class Injection() {
+@Mixin("OHTTHER OTHER")
+class OtherInjection() {
     @SourceInjection(
-        point = "asdf",
-        from = "asdf",
-        to = "asdf",
-        methodFrom = "asdf",
-        methodTo = "asdaaf",
-        priority = 0
+        point = "idk",
+        from = "idk",
+        to = "idk",
+        methodFrom = "idk",
+        methodTo = "idk",
+        priority = 100000
     )
     fun something() {
 

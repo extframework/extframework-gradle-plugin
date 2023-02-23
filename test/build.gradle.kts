@@ -1,5 +1,4 @@
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.YakClient
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.7.10"
@@ -19,13 +18,6 @@ dependencies {
     kapt("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
 }
 
-val generatedKotlinSources = project.buildDir.toPath().resolve("generated")
-kapt {
-    arguments {
-        arg("yakclient.annotation.processor.output", generatedKotlinSources.toString())
-    }
-}
-
 yakclient {
     model {
         extensionClass = ""
@@ -35,6 +27,8 @@ yakclient {
         create("nineteen_two") {
             dependencies {
                 minecraft("1.19.2")
+                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+                "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
             }
 
             supportedVersions.add("1.19.2")
@@ -44,15 +38,9 @@ yakclient {
             dependencies {
                 implementation(other("nineteen_two"))
                 minecraft("1.18")
-            }
-        }
-    }
-    jar {
-        dependsOn(tasks.compileKotlin)
-        from(generatedKotlinSources resolve "injection-annotations.json") {
-            rename {
-                // Really dont need this check, but always a good idea
-                if (it == "injection-annotations.json") "mixins.json" else it
+                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+                "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+
             }
         }
     }

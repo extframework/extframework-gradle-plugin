@@ -7,9 +7,9 @@ import net.yakclient.client.api.annotation.processor.InjectionMetadata
 import net.yakclient.client.api.annotation.processor.InjectionOption
 import net.yakclient.client.api.annotation.processor.InjectionPriorityOption
 import net.yakclient.common.util.make
-import java.io.File
 import java.nio.file.Path
 import javax.annotation.processing.AbstractProcessor
+import javax.annotation.processing.Messager
 import javax.annotation.processing.ProcessingEnvironment
 import javax.annotation.processing.RoundEnvironment
 import javax.annotation.processing.SupportedAnnotationTypes
@@ -18,30 +18,21 @@ import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
 import javax.lang.model.element.TypeElement
+import javax.tools.Diagnostic
 import javax.tools.StandardLocation
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 @SupportedAnnotationTypes(
     "net.yakclient.client.api.annotation.Mixin",
 )
 @SupportedSourceVersion(SourceVersion.RELEASE_17)
 class YakClientPreprocessor : AbstractProcessor() {
-    class InjectionData(
-        val type: String,
-        val options: Map<String, Any>,
-        val priority: Int = 0
-    )
-
-    class MutableMixin(
-        val classname: String,
-        val destination: String,
-        val injections: MutableList<InjectionData>
-    )
-
     private val mixins: MutableMap<String, MutableMixin> = HashMap()
-    private var outputLocation: String? = null
+    private lateinit var messager: Messager
 
     override fun init(processingEnv: ProcessingEnvironment) {
-        outputLocation = processingEnv.options[OUTPUT_OPTION_NAME]
+        messager = processingEnv.messager
 
         super.init(processingEnv)
     }
@@ -61,19 +52,20 @@ class YakClientPreprocessor : AbstractProcessor() {
         annotations: MutableSet<out TypeElement>,
         roundEnv: RoundEnvironment
     ): Boolean {
-        if (roundEnv.processingOver()) writeMetadata()
-        else processAnnotations(annotations, roundEnv)
+        val r = if (roundEnv.processingOver()) {
+            writeMetadata(); true
+        } else processAnnotations(annotations, roundEnv)
 
-        return true
+        return r
     }
 
     private fun processAnnotations(
         annotations: MutableSet<out TypeElement>,
         roundEnv: RoundEnvironment
-    ) {
+    ): Boolean {
         val mixinAnnotation =
             annotations.firstOrNull { it.qualifiedName.contentEquals("net.yakclient.client.api.annotation.Mixin") }
-                ?: return
+                ?: return false
 
         roundEnv.getElementsAnnotatedWith(mixinAnnotation)
             .filterIsInstance<TypeElement>()
@@ -89,14 +81,21 @@ class YakClientPreprocessor : AbstractProcessor() {
                 )
             }
 
-        allViableElements(roundEnv).forEach { element ->
+        for (element in allViableElements(roundEnv)) {
             val (mirror, injectionMetadata) = element.annotationMirrors.firstNotNullOfOrNull { mirror ->
                 mirror.annotationType.asElement().getAnnotation(InjectionMetadata::class.java)?.let { mirror to it }
-            } ?: return@forEach
-
+            } ?: continue
 
             val annotationType = mirror.annotationType.asElement()
-            check(annotationType is TypeElement) { "Error, annotation isn't a type element. This should never happen and is an internal error in annotation processing." }
+            if (annotationType !is TypeElement) {
+                messager.printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Error, annotation isn't a type element. This should never happen and is an internal error in annotation processing.",
+                    annotationType
+                )
+
+                return false
+            }
 
             fun getClassName(element: Element): String? {
                 if (element.kind == ElementKind.CLASS) return (element as TypeElement).qualifiedName.toString()
@@ -126,6 +125,8 @@ class YakClientPreprocessor : AbstractProcessor() {
                 )
             )
         }
+
+        return true
     }
 
     private fun writeMetadata() {
@@ -134,28 +135,33 @@ class YakClientPreprocessor : AbstractProcessor() {
             mixins.values
         )
 
-        outputLocation?.let { output ->
-            val path = Path.of(output, OUTPUT_FILE_NAME)
-            path.make()
-            path.toFile().writeText(value)
-        } ?: run {
-            val filer = processingEnv.filer
+        val filer = processingEnv.filer
 
-            val createResource = filer.createResource(
-                StandardLocation.CLASS_OUTPUT,
-                "",
-                OUTPUT_FILE_NAME
-            )
-            val writer = createResource.openWriter()
-            writer.write(
-                value
-            )
-            writer.close()
-        }
+        val createResource = filer.createResource(
+            StandardLocation.CLASS_OUTPUT,
+            "",
+            OUTPUT_FILE_NAME
+        )
+        val writer = createResource.openWriter()
+        writer.write(
+            value
+        )
+        writer.close()
     }
 
     private companion object {
-        const val OUTPUT_OPTION_NAME = "yakclient.annotation.processor.output"
         const val OUTPUT_FILE_NAME = "mixin-annotations.json"
     }
 }
+
+class InjectionData(
+    val type: String,
+    val options: Map<String, Any>,
+    val priority: Int = 0
+)
+
+class MutableMixin(
+    val classname: String,
+    val destination: String,
+    val injections: MutableList<InjectionData>
+)
