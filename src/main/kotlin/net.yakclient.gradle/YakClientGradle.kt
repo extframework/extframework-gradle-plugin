@@ -63,7 +63,7 @@ class YakClientGradle : Plugin<Project> {
                         val type = if (b) "local" else "default"
                         val location = if (b) it.url.path else it.url.toString()
                         val settings = mutableMapOf(
-                            "location" to location,
+                            "location" to location.removeSuffix("/"),
                             "type" to type
                         )
                         val r = ErmRepository(
@@ -102,6 +102,13 @@ class YakClientGradle : Plugin<Project> {
                     .mapDependencies()
                     .forEach(yakclient.erm.dependencies::add)
             }
+
+            yakclient.erm.versioningPartitions += yakclient.versionPartitionHandler.partitions
+                .flatMap { p -> p.supportedVersions.map { it to p } }
+                .groupBy { it.first }
+                .mapValues { it.value.map { it.second.name } }
+
+            yakclient.erm.versioningPartitions
         }
 
         project.tasks.named("jar", Jar::class.java) { jar ->

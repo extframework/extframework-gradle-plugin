@@ -3,20 +3,15 @@ package net.yakclient.gradle
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
-import groovy.lang.Closure
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
 import org.gradle.api.Action
 import org.gradle.api.DefaultTask
 import org.gradle.api.Task
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileCollection
-import org.gradle.api.internal.tasks.PropertyFileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.SourceSet
-import org.gradle.api.tasks.SourceSetOutput
 import org.gradle.api.tasks.TaskAction
 
 abstract class GenerateErm : DefaultTask() {

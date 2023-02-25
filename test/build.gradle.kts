@@ -31,7 +31,7 @@ yakclient {
                 "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
             }
 
-            supportedVersions.add("1.19.2")
+            supportedVersions.addAll(listOf("1.19.2", "1.18"))
         }
 
         create("eighteen") {
@@ -42,6 +42,7 @@ yakclient {
                 "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
 
             }
+            supportedVersions.addAll(listOf("1.18"))
         }
     }
 }
