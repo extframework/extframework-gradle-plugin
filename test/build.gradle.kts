@@ -15,18 +15,33 @@ repositories {
 }
 
 dependencies {
-    kapt("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+//    kapt("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+//    testImplementation(kotlin("test"))
+
 }
 
 yakclient {
     model {
-        extensionClass = ""
+        extensionClass = "net.yakclient.test.MyExtension"
     }
 
     partitions {
-        create("nineteen_two") {
+        val main by named {
+            dependencies {
+
+            }
+
+            supportedVersions.addAll(listOf(""))
+        }
+
+        this.main = main
+
+        val nineteen = named("nineteen_two") {
             dependencies {
                 minecraft("1.19.2")
+                implementation(main)
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+
                 implementation("net.yakclient:client-api:1.0-SNAPSHOT")
                 "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
             }
@@ -34,10 +49,13 @@ yakclient {
             supportedVersions.addAll(listOf("1.19.2", "1.18"))
         }
 
-        create("eighteen") {
+        named("eighteen") {
             dependencies {
-                implementation(other("nineteen_two"))
+                implementation(nineteen)
+                implementation(main)
                 minecraft("1.18")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+
                 implementation("net.yakclient:client-api:1.0-SNAPSHOT")
                 "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
 

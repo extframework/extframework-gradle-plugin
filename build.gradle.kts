@@ -11,6 +11,7 @@ version = "1.0"
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven {
         isAllowInsecureProtocol = true
         url = uri("http://maven.yakclient.net/snapshots")
@@ -29,6 +30,7 @@ repositories {
 }
 
 dependencies {
+    implementation("net.yakclient:boot:1.0-SNAPSHOT")
     implementation("net.yakclient:archive-mapper-transform:1.1-SNAPSHOT") {
         isChanging = true
     }

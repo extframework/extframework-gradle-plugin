@@ -12,16 +12,7 @@ class Eighteen {
     }
 }
 
-@Mixin("asdfasdf")
 class Injection() {
-    @SourceInjection(
-        point = "asdf",
-        from = "asdf",
-        to = "asdf",
-        methodFrom = "asdf",
-        methodTo = "asdaaf",
-        priority = 0
-    )
     fun something() {
 
     }
