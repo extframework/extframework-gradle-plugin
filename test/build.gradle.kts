@@ -12,12 +12,10 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
     mavenLocal()
-}
-
-dependencies {
-//    kapt("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
-//    testImplementation(kotlin("test"))
-
+    maven {
+        isAllowInsecureProtocol = true
+        url = uri("http://maven.yakclient.net/snapshots")
+    }
 }
 
 yakclient {
@@ -64,30 +62,28 @@ yakclient {
         }
     }
 }
+tasks.compileJava {
+    destinationDirectory.set(destinationDirectory.asFile.get().resolve("main"))
+}
 
-//tasks.jar {
-//
-//}
-//tasks.jar.get().enabled = false
+tasks.compileKotlin {
+    destinationDirectory.set(tasks.compileJava.get().destinationDirectory.asFile.get())
+}
 
-//configure<SourceSetContainer> {
-//
-//}
+tasks.compileTestJava {
+    destinationDirectory.set(destinationDirectory.asFile.get().resolve("test"))
+}
 
-//configure<YakClient> {
-//    partitions {
-//        val partition = create("name") {
-//            minecraft = buildMinecraft(
-//                "version",
-//                mappings
-//            )
-//
-//            supportedVersions = listOf("")
-//
-//            depenencies {
-//                implementation()
-//            }
-//        }
-//    }
-//}
+tasks.compileTestKotlin {
+    destinationDirectory.set(tasks.compileTestJava.get().destinationDirectory.asFile.get())
+}
 
+tasks.test {
+    useJUnitPlatform()
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}

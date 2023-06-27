@@ -8,7 +8,7 @@ class MyExtension : Extension() {
         println("Cleaning!?")
     }
 
-    override fun init(context: ExtensionContext) {
-        println("Initting")
+    override fun init() {
+        println("Initing")
     }
 }
