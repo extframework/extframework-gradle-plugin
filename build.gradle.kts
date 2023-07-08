@@ -3,7 +3,6 @@ plugins {
     kotlin("jvm") version "1.7.10"
 
     id("com.gradle.plugin-publish") version "1.0.0"
-
 }
 
 group = "net.yakclient"
@@ -16,21 +15,9 @@ repositories {
         isAllowInsecureProtocol = true
         url = uri("http://maven.yakclient.net/snapshots")
     }
-    maven {
-        name = "Durgan McBroom GitHub Packages"
-        url = uri("https://maven.pkg.github.com/durganmcbroom/artifact-resolver")
-        credentials {
-            username = project.findProperty("dm.gpr.user") as? String
-                ?: throw IllegalArgumentException("Need a Github package registry username!")
-            password = project.findProperty("dm.gpr.key") as? String
-                ?: throw IllegalArgumentException("Need a Github package registry key!")
-        }
-    }
-    mavenLocal()
 }
 
 dependencies {
-    implementation("net.yakclient:boot:1.0-SNAPSHOT")
     implementation("net.yakclient:archive-mapper-transform:1.1-SNAPSHOT") {
         isChanging = true
     }
@@ -44,9 +31,6 @@ dependencies {
     implementation("net.yakclient:common-util:1.0-SNAPSHOT")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.0-SNAPSHOT")
-    implementation("com.durganmcbroom:artifact-resolver:1.0-SNAPSHOT")
 }
 
 pluginBundle {

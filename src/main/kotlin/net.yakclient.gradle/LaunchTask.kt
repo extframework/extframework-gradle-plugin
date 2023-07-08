@@ -1,178 +1,100 @@
 package net.yakclient.gradle
 
-import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.fasterxml.jackson.module.kotlin.readValue
-import net.yakclient.boot.component.artifact.SoftwareComponentArtifactRequest
-import net.yakclient.boot.component.artifact.SoftwareComponentDescriptor
-import org.gradle.api.DefaultTask
-import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.options.Option
+import net.yakclient.common.util.openStream
+import net.yakclient.common.util.parseHex
+import net.yakclient.common.util.readInputStream
+import net.yakclient.common.util.resolve
+import net.yakclient.common.util.resource.ExternalResource
+import net.yakclient.common.util.resource.LocalResource
+import net.yakclient.launchermeta.handler.copyToBlocking
+import org.gradle.api.Project
+import org.gradle.api.tasks.TaskProvider
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
+import java.nio.file.Files
+import java.nio.file.Path
 
-abstract class LaunchTask : DefaultTask() {
-    @get:Input
-    @get:Option(option = "mcVersion", description="Sets the minecraft version when launching.")
-    abstract val mcVersion: Property<String>
+data class ExtRepoArg(
+        val location: String,
+        val type: String
+)
 
-    @get:Input
-    @get:Option(option = "devMode", description="Puts this task into dev mode. You probably only want this if you are working on yakclient/this gradle plugin itself.")
-    @get:Optional
-    abstract val devMode: Property<Boolean>
+data class ExtDescriptorArg(
+        val groupId: String,
+        val artifactId: String,
+        val version: String
+)
 
-    @get:Internal
-    val bootCache = project.buildDir.resolve("boot-cache")
-    private val mapper = ObjectMapper().registerModule(KotlinModule.Builder().build())
-    private val yakclientDescriptor = SoftwareComponentDescriptor(
-            "net.yakclient.components",
-            "yak",
-            "1.0-SNAPSHOT",
-            null
-    )
+data class ExtArg(
+        val descriptor: ExtDescriptorArg,
+        val repository: ExtRepoArg
+)
+fun preDownloadClient(version: String, project: Project) : Path {
+    return project.buildDir.toPath() resolve "launch" resolve "client-$version.jar"
 
-    init {
-        devMode.convention(false)
-    }
+}
+fun downloadClient(version: String, project: Project, devMode: Boolean = false) {
+    val outputPath = preDownloadClient(version, project)
 
-    fun preCache(yak: YakClientExtension): Pair<SoftwareComponentArtifactRequest, String> {
+    if (Files.exists(outputPath)) return
 
-        val repositoryDir = bootCache.resolve("tmp").resolve("m2")
-        val descriptor = SoftwareComponentDescriptor(yak.erm.groupId, yak.erm.name, yak.erm.version, null)
-
-        val versionDir =
-                repositoryDir.resolve(descriptor.group.replace('.', File.separatorChar)).resolve(descriptor.artifact)
-                        .resolve(descriptor.version)
-        (project.tasks.getByName("jar").outputs.files).forEach {
-            it.copyRecursively(versionDir.resolve(it.name), overwrite = true)
-        }
-        (project.tasks.getByName("generateErm").outputs.files
-                .find { it.name == "erm.json" }
-                ?: throw IllegalStateException("Couldnt find generated Extension Runtime model when creating mock repository for boot."))
-                .run {
-                    copyRecursively(versionDir.resolve("${descriptor.artifact}-${descriptor.version}-erm.json"), overwrite = true)
-                }
-
-        return SoftwareComponentArtifactRequest(
-                descriptor,
-        ) to repositoryDir.toString()
-    }
-
-    private fun cacheComponent(client: HttpClient) {
-        data class CacheComponentRequest(
-                val repositoryType: String,
-                val repository: String,
-                val request: String
+    val path = "net/yakclient/client/$version/client-$version-all.jar"
+    val resource = if (devMode)
+        LocalResource(URI.create("file://${project.mavenLocal()}/$path"))
+    else
+        ExternalResource(
+                URI.create("http://maven.yakclient.net/snapshots$path"),
+                String(URI.create("http://maven.yakclient.net/snapshots$path.sha1").openStream().readInputStream()).parseHex()
         )
 
-        val body =  if (devMode.get()) CacheComponentRequest(
-                "local", mavenLocal, "net.yakclient.components:yak:1.0-SNAPSHOT"
-        ) else CacheComponentRequest(
-                "default", "http://maven.yakclient.net/snapshots", "net.yakclient.components:yak:1.0-SNAPSHOT"
-        )
-
-        val httpRequest = HttpRequest.newBuilder(URI.create("http://localhost:5000/cache"))
-                .POST(HttpRequest.BodyPublishers.ofByteArray(mapper.writeValueAsBytes(body)))
-                .header("Content-Type", "application/json")
-                .build()
-
-        val response = client.send(httpRequest, HttpResponse.BodyHandlers.ofString())
-        assert(response.statusCode() == 200) { "Failed to cache yakclient component in daemon. The daemon might be down or the cache failed for some reason. Check if the daemon is running by pining localhost:5000 on your browser." }
-    }
-
-    private fun runComponent(client: HttpClient, request: SoftwareComponentArtifactRequest, location: String) {
-        data class IsRunningResponse(
-                val group: String,
-                val artifact: String,
-                val version: String,
-                val isRunning: Boolean
-        )
-
-        data class YakExtensionDescriptor(
-                val groupId: String,
-                val artifactId: String,
-                val version: String
-        )
-
-        data class YakExtensionRepository(
-                val type: String,
-                val location: String
-        )
-
-        data class YakExtensionConfiguration(
-                val descriptor: YakExtensionDescriptor,
-                val repository: YakExtensionRepository,
-        )
-
-        data class YakConfiguration(
-                val mcVersion: String,
-                val mcArgs: List<String>,
-                val extensions: List<YakExtensionConfiguration>
-        )
-
-
-        val isRunningRequest = HttpRequest.newBuilder(URI.create("http://localhost:5000/isRunning?group=${yakclientDescriptor.group}&artifact=${yakclientDescriptor.artifact}&version=${yakclientDescriptor.version}"))
-                .GET()
-                .build()
-
-        val isRunningResponse = client.send(isRunningRequest, HttpResponse.BodyHandlers.ofInputStream())
-        val isRunning = mapper.readValue<IsRunningResponse>(isRunningResponse.body()).isRunning
-
-        if (isRunning) {
-            val stopRequest = HttpRequest.newBuilder(URI.create("http://localhost:5000/stop?group=${yakclientDescriptor.group}&artifact=${yakclientDescriptor.artifact}&version=${yakclientDescriptor.version}"))
-                    .PUT(HttpRequest.BodyPublishers.noBody())
-                    .header("Content-Type", "application/json")
-                    .build()
-            val stopResponse = client.send(stopRequest, HttpResponse.BodyHandlers.discarding())
-            assert(stopResponse.statusCode() == 200) { "Failed to stop yakclient when trying to launch minecraft with testing component: '$request'" }
-        }
-
-
-        val startRequest = HttpRequest.newBuilder(URI.create("http://localhost:5000/start?group=${yakclientDescriptor.group}&artifact=${yakclientDescriptor.artifact}&version=${yakclientDescriptor.version}"))
-                .PUT(
-                        HttpRequest.BodyPublishers.ofByteArray(mapper.writeValueAsBytes(
-                                YakConfiguration(
-                                        mcVersion.get(),
-                                        listOf("--version", mcVersion.get(), "--accessToken", ""), // TODO eventually
-                                        listOf(
-                                                YakExtensionConfiguration(
-                                                        YakExtensionDescriptor(
-                                                                request.descriptor.group,
-                                                                request.descriptor.artifact,
-                                                                request.descriptor.version
-                                                        ),
-                                                        YakExtensionRepository(
-                                                                "local",
-                                                                location
-                                                        )
-                                                )
-                                        )
-                                )
-                        ))
-                )
-                .header("Content-Type", "application/json")
-                .build()
-        val startResponse = client.send(startRequest, HttpResponse.BodyHandlers.discarding())
-        assert(startResponse.statusCode() == 200) { "Failed to start the yakclient component with your extension. I promise these error messages will get better eventually." }
-    }
-
-    @TaskAction
-    fun run() {
-        val yakclient = project.extensions.getByName("yakclient") as YakClientExtension
-
-        val (request, location) = preCache(yakclient)
-
-        val client = HttpClient.newHttpClient()
-        cacheComponent(client)
-        runComponent(client, request, location)
-    }
+    resource.copyToBlocking(outputPath)
 }
 
+fun preCacheExtension(project: Project,yak: YakClientExtension) : Pair<ExtDescriptorArg, ExtRepoArg> {
+    val repositoryDir = project.mavenLocal()
+    val descriptor = ExtDescriptorArg(yak.erm.groupId, yak.erm.name, yak.erm.version)
+
+    return descriptor to ExtRepoArg(repositoryDir.toString(), "local")
+}
+
+//fun cacheExtension(project: Project, yak: YakClientExtension) {
+//    val (descriptor, repo) = preCacheExtension(project,yak)
+//    val repositoryDir = Path.of(repo.location)
+//
+//    val versionDir =
+//            repositoryDir.resolve(descriptor.groupId.replace('.', File.separatorChar)).resolve(descriptor.artifactId)
+//                    .resolve(descriptor.version)
+//    (project.tasks.getByName("jar").outputs.files).forEach {
+//        it.copyRecursively(versionDir.resolve(it.name).toFile(), overwrite = true)
+//    }
+//    (project.tasks.getByName("generateErm").outputs.files
+//            .find { it.name == "erm.json" }
+//            ?: throw IllegalStateException("Couldnt find generated Extension Runtime model when creating mock repository for boot."))
+//            .run {
+//                copyRecursively(versionDir.resolve("${descriptor.artifactId}-${descriptor.version}-erm.json").toFile(), overwrite = true)
+//            }
+//}
+
+fun Project.registerLaunchTask(jar: TaskProvider<*>, yakclient: YakClientExtension) = tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
+    val mcVersion: String by properties
+    val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
+
+    exec.dependsOn(tasks.getByName("publishToMavenLocal"))
+
+    val path = preDownloadClient("1.0-SNAPSHOT", project)
+    val (desc, repo) = preCacheExtension(this,yakclient)
+
+    exec.classpath(path)
+    exec.mainClass.set("net.yakclient.client.MainKt")
+    exec.args = listOf("-w", (buildDir.toPath() resolve "launch").toString(), "-v", mcVersion, "--accessToken", "")
+
+    exec.setStandardInput(ObjectMapper().registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build()).writeValueAsBytes(
+            listOf(ExtArg(desc, repo))
+    ).let(::ByteArrayInputStream))
+
+    exec.doFirst {
+        downloadClient("1.0-SNAPSHOT", project, devMode)
+    }
+}

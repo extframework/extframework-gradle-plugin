@@ -20,6 +20,10 @@ repositories {
 
 yakclient {
     model {
+        groupId = "net.yakclient"
+        name="test"
+        version="1.0-SNAPSHOT"
+
         extensionClass = "net.yakclient.test.MyExtension"
     }
 

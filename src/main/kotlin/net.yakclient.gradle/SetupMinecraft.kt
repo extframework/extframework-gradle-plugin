@@ -1,6 +1,5 @@
 package net.yakclient.gradle
 
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import net.yakclient.archive.mapper.parsers.ProGuardMappingParser
 import net.yakclient.archive.mapper.transform.MappingDirection
 import net.yakclient.archive.mapper.transform.transformArchive
@@ -8,11 +7,7 @@ import net.yakclient.archives.Archives
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
 import net.yakclient.launchermeta.handler.*
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.FileReader
+import java.io.*
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -90,11 +85,13 @@ private fun cacheMinecraft(version: String, basePath: Path): Pair<McMetadata, Bo
             val processor = DefaultMetadataProcessor()
             val dependencies = processor.deriveDependencies(OsType.type, metadata)
             val paths = dependencies.map {
-                val desc = SimpleMavenDescriptor.parseDescription(it.name)!!
-                val toPath = libPath resolve (desc.group.replace(
+                val split = it.name.split(':')
+                val dClassifier = split.getOrNull(3)
+                val (dGroup, dArtifact, dVersion) = split
+                val toPath = libPath resolve (dGroup.replace(
                     '.',
                     File.separatorChar
-                )) resolve desc.artifact resolve desc.version resolve "${desc.artifact}-${desc.version}${if (desc.classifier == null) "" else "-${desc.classifier}"}.jar"
+                )) resolve dArtifact resolve dVersion resolve "${dArtifact}-${dVersion}${if (dClassifier == null) "" else "-${dClassifier}"}.jar"
 
                 it.downloads.artifact.toResource() copyToBlocking toPath
 
@@ -156,5 +153,7 @@ fun remapJar(jarPath: Path, mappingsPath: Path, dependencies: List<Path>) {
 
     Files.copy(jar, jarPath, StandardCopyOption.REPLACE_EXISTING)
 }
+
+
 
 
