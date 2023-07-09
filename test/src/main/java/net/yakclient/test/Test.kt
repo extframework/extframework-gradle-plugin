@@ -13,16 +13,8 @@ fun main(args: Array<String>) {
     println("YAY")
 }
 
-@Mixin("asdfasdf")
-class Injection() {
-    @SourceInjection(
-        point = "asdf",
-        from = "asdf",
-        to = "asdf",
-        methodFrom = "asdf",
-        methodTo = "asdaaf",
-        priority = 0
-    )
+class OtherInjection() {
+
     fun something() {
 
     }

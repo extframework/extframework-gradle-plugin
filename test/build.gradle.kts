@@ -1,5 +1,4 @@
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.YakClient
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.7.10"
@@ -13,74 +12,82 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
     mavenLocal()
-}
-
-dependencies {
-    kapt("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
-}
-
-val generatedKotlinSources = project.buildDir.toPath().resolve("generated")
-kapt {
-    arguments {
-        arg("yakclient.annotation.processor.output", generatedKotlinSources.toString())
+    maven {
+        isAllowInsecureProtocol = true
+        url = uri("http://maven.yakclient.net/snapshots")
     }
 }
 
 yakclient {
     model {
-        extensionClass = ""
+        groupId = "net.yakclient"
+        name="test"
+        version="1.0-SNAPSHOT"
+
+        extensionClass = "net.yakclient.test.MyExtension"
     }
 
     partitions {
-        create("nineteen_two") {
+        val main by named {
+            dependencies {
+
+            }
+
+            supportedVersions.addAll(listOf(""))
+        }
+
+        this.main = main
+
+        val nineteen = named("nineteen_two") {
             dependencies {
                 minecraft("1.19.2")
+                implementation(main)
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+
+                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+                "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
             }
 
-            supportedVersions.add("1.19.2")
+            supportedVersions.addAll(listOf("1.19.2", "1.18"))
         }
 
-        create("eighteen") {
+        named("eighteen") {
             dependencies {
-                implementation(other("nineteen_two"))
+                implementation(nineteen)
+                implementation(main)
                 minecraft("1.18")
+                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+
+                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+                "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+
             }
-        }
-    }
-    jar {
-        dependsOn(tasks.compileKotlin)
-        from(generatedKotlinSources resolve "injection-annotations.json") {
-            rename {
-                // Really dont need this check, but always a good idea
-                if (it == "injection-annotations.json") "mixins.json" else it
-            }
+            supportedVersions.addAll(listOf("1.18"))
         }
     }
 }
+tasks.compileJava {
+    destinationDirectory.set(destinationDirectory.asFile.get().resolve("main"))
+}
 
-//tasks.jar {
-//
-//}
-//tasks.jar.get().enabled = false
+tasks.compileKotlin {
+    destinationDirectory.set(tasks.compileJava.get().destinationDirectory.asFile.get())
+}
 
-//configure<SourceSetContainer> {
-//
-//}
+tasks.compileTestJava {
+    destinationDirectory.set(destinationDirectory.asFile.get().resolve("test"))
+}
 
-//configure<YakClient> {
-//    partitions {
-//        val partition = create("name") {
-//            minecraft = buildMinecraft(
-//                "version",
-//                mappings
-//            )
-//
-//            supportedVersions = listOf("")
-//
-//            depenencies {
-//                implementation()
-//            }
-//        }
-//    }
-//}
+tasks.compileTestKotlin {
+    destinationDirectory.set(tasks.compileTestJava.get().destinationDirectory.asFile.get())
+}
 
+tasks.test {
+    useJUnitPlatform()
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}

@@ -3,51 +3,54 @@ package net.yakclient.gradle
 import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.plugins.JvmEcosystemPlugin
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.api.tasks.SourceSetOutput
 import org.gradle.jvm.tasks.Jar
+import java.nio.file.Path
 import kotlin.reflect.KProperty
+
+fun Project.mavenLocal() : Path = Path.of(repositories.mavenLocal().url)
 
 class YakClientGradle : Plugin<Project> {
     override fun apply(project: Project) {
         project.plugins.apply(JvmEcosystemPlugin::class.java)
-        val yakclient = project.extensions.create("yakclient", YakClient::class.java, project)
+        val yakclient = project.extensions.create("yakclient", YakClientExtension::class.java, project)
 
         project.dependencies.add("implementation", "net.yakclient:client-api:1.0-SNAPSHOT")
 
-        val generateErm = project.tasks.register("generateErm", GenerateErm::class.java)
+        val generateErm = project.registerGenerateErmTask(yakclient)
 
-
-        project.tasks.register("extJar", Jar::class.java) { jar ->
+        val jar = project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)
             jar.from(generateErm)
 
             val outputs = yakclient.versionPartitionHandler.partitions
 
             outputs.forEach { partition ->
-                println("Partitions are: " + partition.sourceSet.output.map { it.name })
                 jar.from(partition.sourceSet.output) { copy ->
                     copy.into("META-INF/versioning/partitions/${partition.name}")
                 }
             }
         }
+
+        project.registerLaunchTask(jar, yakclient)
     }
 }
 
-open class YakClient(
-    private val project: Project
+open class YakClientExtension(
+        private val project: Project
 ) {
     internal val versionPartitionHandler = VersionPartitionHandler()
-    private val sourceSets = project.extensions.getByType(SourceSetContainer::class.java)
+    internal val sourceSets = project.extensions.getByType(SourceSetContainer::class.java)
     val erm: ExtensionRuntimeModel = ExtensionRuntimeModel(
-        project.group.toString(),
-        project.name,
-        project.version.toString(),
-        versioningPartitions = HashMap()
-    )
+            "",
+            "",
+            "",
 
+            versionPartitions = ArrayList()
+    )
 
     fun partitions(configure: Action<VersionPartitionHandler>) {
         configure.execute(versionPartitionHandler)
@@ -63,30 +66,47 @@ open class YakClient(
 
     inner class VersionPartitionHandler internal constructor() {
         internal val partitions: MutableList<VersionPartition> = ArrayList()
+        lateinit var main: VersionPartition
 
-        fun create(name: String, configurer: Action<VersionPartition>) {
-            println("Creating: '$name'")
-            val sourceSet = sourceSets.create(name)
+        // BE CAREFUL! Will only evaluate if you access the delegate property!
+        fun named(
+                configuration: Action<VersionPartition>
+        ): GettingDelegate<VersionPartition> = GettingDelegate {
+            named(it, configuration)
+        }
+
+
+        fun named(name: String, configuration: Action<VersionPartition>): VersionPartition {
+            val sourceSet = sourceSets.findByName(name) ?: sourceSets.create(name)
 
             val versionPartition = VersionPartition(
-                project,
-                name,
-                sourceSet,
-                ArrayList(),
+                    project,
+                    name,
+                    sourceSet,
+                    ArrayList(),
+                    false,
+                    "${name}Extension"
             )
 
+            project.configurations.create(versionPartition.extensionConfigurationName) {
+                it.extendsFrom(project.configurations.named(sourceSet.implementationConfigurationName).get())
+            }
+
             partitions.add(versionPartition)
-            configurer.execute(versionPartition)
+            configuration.execute(versionPartition)
+
+            return versionPartition
         }
     }
 
 
     data class VersionPartition(
-        private val project: Project,
-        val name: String,
-        val sourceSet: SourceSet,
-        val supportedVersions: MutableList<String>,
-        val excluded: Boolean = false,
+            private val project: Project,
+            val name: String,
+            val sourceSet: SourceSet,
+            val supportedVersions: MutableList<String>,
+            val excluded: Boolean = false,
+            val extensionConfigurationName: String
     ) {
         internal val dependencyScope = DependencyScope()
 
@@ -95,49 +115,60 @@ open class YakClient(
         inner class DependencyScope {
             internal val minecraftDependencies = ArrayList<String>()
 
-            fun other(name: String): SourceSetOutput {
-                return project.extensions.getByType(YakClient::class.java).sourceSets.getByName(name).output
+            operator fun String.invoke(notation: Any) {
+                val newNotation = if (notation is VersionPartition) notation.sourceSet.output else notation
+
+                project.dependencies.add(this, newNotation)
             }
 
-            fun other(): GettingDelegate<SourceSetOutput> = GettingDelegate(::other)
-
             fun implementation(notation: Any) {
-                project.dependencies.add(sourceSet.implementationConfigurationName, notation)
+                sourceSet.implementationConfigurationName(notation)
             }
 
             fun minecraft(version: String) {
                 minecraftDependencies.add(version)
-                println("Adding version: '$version'")
 
                 val task = project.tasks.register("generateMinecraft${version}Sources", GenerateMcSources::class.java) {
                     it.minecraftVersion.set(version)
                 }
 
-                project.dependencies.add(
-                    sourceSet.implementationConfigurationName,
-                    project.files(task.get().outputs.files).apply {
-                        builtBy(task)
-                    },
+                implementation(
+                        project.files(task.get().outputs.files).apply {
+                            builtBy(task)
+                        }
                 )
+            }
+
+            fun extension(notation: Any) {
+                extensionConfigurationName(notation)
             }
         }
 
     }
 
-    data class MinecraftVersion(
-        val version: String = "<NOT SET>",
-        val mappings: String = "",
-    )
-}
+    internal companion object {
+        fun ermDependency(dependency: Dependency): Map<String, String>? {
+            if (dependency.group?.isNotBlank() != true
+                    || dependency.name == "unspecified"
+                    || dependency.version?.isNotBlank() != true
+            ) return null
 
-class GettingDelegate<out T>(
-    private val provider: (String) -> T
-) {
-    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
-        return provider(property.name)
+            return mapOf( // Always a good idea to fill out default values even if they are provided, just in case libraries updates etc.
+                    "descriptor" to ("${dependency.group}:${dependency.name}:${dependency.version}"),
+                    "isTransitive" to "true",
+                    "includeScopes" to "compile,runtime,import",
+                    "excludeArtifacts" to ""
+            )
+        }
     }
 }
 
-interface AnnotationProcessorConnection {
-    fun poll(): Set<ExtensionMixin>
+class GettingDelegate<out T>(
+        private val provider: (String) -> T
+) {
+    private var cache: T? = null
+
+    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return cache ?: provider(property.name).also { cache = it }
+    }
 }

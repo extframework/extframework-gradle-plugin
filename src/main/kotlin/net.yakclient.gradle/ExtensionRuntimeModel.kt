@@ -1,26 +1,25 @@
 package net.yakclient.gradle
 
 
-// TODO make jackson parsing return a more readable yak wrapped error.
-// Represents the YakClient ERM (or Extension runtime model)
 data class ExtensionRuntimeModel(
     var groupId: String,
     var name: String,
     var version: String,
 
-    var packagingType: String? = null, // Jar, War, Zip, etc...
+    var packagingType: String = "jar", // Jar, War, Zip, etc...
 
-    var extensionClass: String? = null,
-
-    val dependencyRepositories: MutableList<ErmRepository> = ArrayList(),
-    val dependencies: MutableList<Map<String, String>> = ArrayList(),
+    var extensionClass: String = "",
+    var mainPartition: String = "", // its name
 
     val extensionRepositories: MutableList<Map<String, String>> = ArrayList(),
     val extensions: MutableList<Map<String, String>> = ArrayList(),
 
-    val mixins : MutableSet<ExtensionMixin> = HashSet(),
+    val versionPartitions: MutableList<ExtensionVersionPartition>,
+)
 
-    val versioningPartitions: MutableMap<String, List<String>> // Versions to partition
+data class ExtensionRepository(
+    var type: String,
+    val settings: MutableMap<String, String>
 )
 
 data class ExtensionMixin(
@@ -35,7 +34,14 @@ data class ExtensionInjection(
     var priority: Int = 0
 )
 
-data class ErmRepository(
-    var type: String,
-    val settings: MutableMap<String, String>
+data class ExtensionVersionPartition(
+    var name: String,
+    var path: String,
+
+    val supportedVersions: MutableSet<String>,
+
+    val repositories: MutableList<ExtensionRepository>,
+    val dependencies: MutableList<Map<String, String>>,
+
+    val mixins: MutableList<ExtensionMixin>
 )
