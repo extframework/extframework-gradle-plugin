@@ -8,16 +8,14 @@ plugins {
 group = "net.yakclient"
 version = "1.0"
 
-repositories {
-    mavenCentral()
-    mavenLocal()
-    maven {
-        isAllowInsecureProtocol = true
-        url = uri("http://maven.yakclient.net/snapshots")
-    }
-}
-
 dependencies {
+    implementation("io.arrow-kt:arrow-core:1.1.2")
+    implementation("com.durganmcbroom:artifact-resolver:1.0-SNAPSHOT") {
+        isChanging = true
+    }
+    implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.0-SNAPSHOT") {
+        isChanging = true
+    }
     implementation("net.yakclient:archive-mapper-transform:1.1-SNAPSHOT") {
         isChanging = true
     }
@@ -37,7 +35,6 @@ pluginBundle {
     website = "https://github.com/yakclient"
     vcsUrl = "https://github.com/yakclient/yakclient-gradle"
     tags = listOf("")
-
 }
 gradlePlugin {
     plugins {
@@ -51,62 +48,27 @@ gradlePlugin {
 
 }
 
-//task<Jar>("sourcesJar") {
-//    archiveClassifier.set("sources")
-//    from(sourceSets.main.get().allSource)
-//}
-//
-//task<Jar>("javadocJar") {
-//    archiveClassifier.set("javadoc")
-//    from(tasks.dokkaJavadoc)
-//}
+publishing {
+    repositories {
+        if (!project.hasProperty("maven-user") || !project.hasProperty("maven-pass")) return@repositories
 
-//publishing {
-//    publications {
-//        create<MavenPublication>("yak-gradle-maven") {
-////            from(components["java"])
-////            artifact(tasks["sourcesJar"])
-////            artifact(tasks["javadocJar"])
-//
-//            artifactId = "yakclient-gradle"
-//
-//            pom {
-//                name.set("Yakclient Gradle")
-//                description.set("YakClient Gradle plugin for creating extensions")
-//                url.set("https://github.com/yakclient/yakclient-gradle")
-//
-//                packaging = "jar"
-//
-//                developers {
-//                    developer {
-//                        id.set("Chestly")
-//                        name.set("Durgan McBroom")
-//                    }
-//                }
-//                withXml {
-//                    val repositoriesNode = asNode().appendNode("repositories")
-//
-//                    val yakRepoNode = repositoriesNode.appendNode("repository")
-//                    yakRepoNode.appendNode("id", "yakclient")
-//                    yakRepoNode.appendNode("url", "http://maven.yakclient.net/snapshots")
-//                }
-//
-//                licenses {
-//                    license {
-//                        name.set("GNU General Public License")
-//                        url.set("https://opensource.org/licenses/gpl-license")
-//                    }
-//                }
-//
-//                scm {
-//                    connection.set("scm:git:git://github.com/yakclient/yakclient-gradle")
-//                    developerConnection.set("scm:git:ssh://github.com:yakclient/yakclient-gradle.git")
-//                    url.set("https://github.com/yakclient/yakclient-gradle")
-//                }
-//            }
-//        }
-//    }
-//}
+        maven {
+            val repo = if (project.findProperty("isSnapshot") == "true") "snapshots" else "releases"
+
+            isAllowInsecureProtocol = true
+
+            url = uri("http://maven.yakclient.net/$repo")
+
+            credentials {
+                username = project.findProperty("maven-user") as String
+                password = project.findProperty("maven-pass") as String
+            }
+            authentication {
+                create<BasicAuthentication>("basic")
+            }
+        }
+    }
+}
 
 
 
@@ -123,16 +85,6 @@ allprojects {
         maven {
             isAllowInsecureProtocol = true
             url = uri("http://maven.yakclient.net/snapshots")
-        }
-        maven {
-            name = "Durgan McBroom GitHub Packages"
-            url = uri("https://maven.pkg.github.com/durganmcbroom/artifact-resolver")
-            credentials {
-                username = project.findProperty("dm.gpr.user") as? String
-                    ?: throw IllegalArgumentException("Need a Github package registry username!")
-                password = project.findProperty("dm.gpr.key") as? String
-                    ?: throw IllegalArgumentException("Need a Github package registry key!")
-            }
         }
         mavenLocal()
     }

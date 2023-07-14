@@ -1,5 +1,9 @@
 package net.yakclient.gradle
 
+import com.durganmcbroom.artifact.resolver.open
+import com.durganmcbroom.artifact.resolver.simple.maven.HashType
+import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
+import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
 import com.fasterxml.jackson.databind.ObjectMapper
 import net.yakclient.common.util.openStream
 import net.yakclient.common.util.parseHex
@@ -7,11 +11,14 @@ import net.yakclient.common.util.readInputStream
 import net.yakclient.common.util.resolve
 import net.yakclient.common.util.resource.ExternalResource
 import net.yakclient.common.util.resource.LocalResource
+import net.yakclient.common.util.resource.SafeResource
 import net.yakclient.launchermeta.handler.copyToBlocking
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.InputStream
+import java.lang.IllegalStateException
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -40,16 +47,27 @@ fun downloadClient(version: String, project: Project, devMode: Boolean = false) 
 
     if (Files.exists(outputPath)) return
 
-    val path = "net/yakclient/client/$version/client-$version-all.jar"
-    val resource = if (devMode)
-        LocalResource(URI.create("file://${project.mavenLocal()}/$path"))
-    else
-        ExternalResource(
-                URI.create("http://maven.yakclient.net/snapshots$path"),
-                String(URI.create("http://maven.yakclient.net/snapshots$path.sha1").openStream().readInputStream()).parseHex()
-        )
+    val layout = if (devMode)
+        SimpleMavenLocalLayout()
+    else SimpleMavenDefaultLayout("http://maven.yakclient.net/snapshots", HashType.SHA1, true, true)
 
-    resource.copyToBlocking(outputPath)
+    val resourceOr = layout.resourceOf(
+        "net.yakclient",
+        "client",
+        "1.0-SNAPSHOT",
+        "all",
+        "jar"
+    )
+
+    val resource = resourceOr.tapLeft { throw IllegalStateException(it.message) }.orNull()!!
+
+   val safeResource = object : SafeResource {
+        override val uri: URI = URI.create(resource.location)
+
+        override fun open(): InputStream = resource.open()
+    }
+
+    safeResource copyToBlocking outputPath
 }
 
 fun preCacheExtension(project: Project,yak: YakClientExtension) : Pair<ExtDescriptorArg, ExtRepoArg> {
@@ -77,7 +95,7 @@ fun preCacheExtension(project: Project,yak: YakClientExtension) : Pair<ExtDescri
 //            }
 //}
 
-fun Project.registerLaunchTask(jar: TaskProvider<*>, yakclient: YakClientExtension) = tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
+fun Project.registerLaunchTask(yakclient: YakClientExtension) = tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
     val mcVersion: String by properties
     val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
 

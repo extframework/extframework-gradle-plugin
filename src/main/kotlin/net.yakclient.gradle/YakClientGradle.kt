@@ -22,7 +22,7 @@ class YakClientGradle : Plugin<Project> {
 
         val generateErm = project.registerGenerateErmTask(yakclient)
 
-        val jar = project.tasks.named("jar", Jar::class.java) { jar ->
+        project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)
             jar.from(generateErm)
 
@@ -35,7 +35,7 @@ class YakClientGradle : Plugin<Project> {
             }
         }
 
-        project.registerLaunchTask(jar, yakclient)
+        project.registerLaunchTask(yakclient)
     }
 }
 
