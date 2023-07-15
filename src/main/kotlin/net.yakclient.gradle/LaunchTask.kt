@@ -101,7 +101,12 @@ fun Project.registerLaunchTask(yakclient: YakClientExtension) = tasks.register("
     exec.classpath(path)
     exec.mainClass.set("net.yakclient.client.MainKt")
     val launchPath = buildDir.toPath() resolve "launch"
-    exec.args = listOf("-w", launchPath.toString(), "-v", mcVersion, "--accessToken", "", if (devMode) "--devmode" else "")
+    val args = mutableListOf("-w", launchPath.toString(), "-v", mcVersion, "--accessToken", "")
+    if (devMode) {
+        args.add("--devmode")
+    }
+    exec.args = args
+
     val wd = (launchPath resolve "wd").toAbsolutePath().toFile()
     wd.mkdirs()
     exec.workingDir = wd
