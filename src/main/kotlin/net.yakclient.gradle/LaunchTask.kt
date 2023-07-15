@@ -5,18 +5,12 @@ import com.durganmcbroom.artifact.resolver.simple.maven.HashType
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
 import com.fasterxml.jackson.databind.ObjectMapper
-import net.yakclient.common.util.openStream
-import net.yakclient.common.util.parseHex
-import net.yakclient.common.util.readInputStream
+import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
-import net.yakclient.common.util.resource.ExternalResource
-import net.yakclient.common.util.resource.LocalResource
 import net.yakclient.common.util.resource.SafeResource
 import net.yakclient.launchermeta.handler.copyToBlocking
 import org.gradle.api.Project
-import org.gradle.api.tasks.TaskProvider
 import java.io.ByteArrayInputStream
-import java.io.File
 import java.io.InputStream
 import java.lang.IllegalStateException
 import java.net.URI
@@ -106,7 +100,11 @@ fun Project.registerLaunchTask(yakclient: YakClientExtension) = tasks.register("
 
     exec.classpath(path)
     exec.mainClass.set("net.yakclient.client.MainKt")
-    exec.args = listOf("-w", (buildDir.toPath() resolve "launch").toString(), "-v", mcVersion, "--accessToken", "")
+    val launchPath = buildDir.toPath() resolve "launch"
+    exec.args = listOf("-w", launchPath.toString(), "-v", mcVersion, "--accessToken", "", if (devMode) "--devmode" else "")
+    val wd = (launchPath resolve "wd").toAbsolutePath().toFile()
+    wd.mkdirs()
+    exec.workingDir = wd
 
     exec.setStandardInput(ObjectMapper().registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build()).writeValueAsBytes(
             listOf(ExtArg(desc, repo))

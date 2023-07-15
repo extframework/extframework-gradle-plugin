@@ -4,6 +4,8 @@ plugins {
     kotlin("jvm") version "1.7.10"
     kotlin("kapt") version "1.8.10"
     id("net.yakclient") version "1.0"
+    id("maven-publish")
+
 }
 
 group = "net.yakclient"
