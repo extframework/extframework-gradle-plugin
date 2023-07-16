@@ -66,7 +66,8 @@ fun downloadClient(version: String, project: Project, devMode: Boolean = false) 
 
 fun preCacheExtension(project: Project,yak: YakClientExtension) : Pair<ExtDescriptorArg, ExtRepoArg> {
     val repositoryDir = project.mavenLocal()
-    val descriptor = ExtDescriptorArg(yak.erm.groupId, yak.erm.name, yak.erm.version)
+    val erm = yak.erm
+    val descriptor = ExtDescriptorArg(erm.groupId, erm.name, erm.version)
 
     return descriptor to ExtRepoArg(repositoryDir.toString(), "local")
 }

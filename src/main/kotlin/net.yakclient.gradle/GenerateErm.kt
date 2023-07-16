@@ -61,35 +61,36 @@ abstract class GenerateErm : DefaultTask() {
     }
 }
 
-fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =project.tasks.register("generateErm", GenerateErm::class.java) { task ->
-    val sourceSets = yakclient.sourceSets
+fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
+    project.tasks.register("generateErm", GenerateErm::class.java) { task ->
+        val sourceSets = yakclient.sourceSets
 
-    sourceSets.forEach {
-        task.dependsOn(project.tasks.named(it.classesTaskName).get())
-    }
+        sourceSets.forEach {
+            task.dependsOn(project.tasks.named(it.classesTaskName).get())
+        }
 
-    task.preprocessorOutput.set(
+        task.preprocessorOutput.set(
             sourceSets
-                    .associateBy { it.name }
-                    .mapValues { project.files(it.value.output.files) }
-    )
+                .associateBy { it.name }
+                .mapValues { project.files(it.value.output.files) }
+        )
 
-    task.doFirst(object : Action<Task> {
-        override fun execute(t: Task) {
-            val project = t.project
+        task.doFirst(object : Action<Task> {
+            override fun execute(t: Task) {
+                val project = t.project
 
-            val extensionRepositories: List<ExtensionRepository> = project.repositories
+                val extensionRepositories: List<ExtensionRepository> = project.repositories
                     .asSequence()
                     .onEach {
                         if (it !is MavenArtifactRepository) logger.log(
-                                LogLevel.WARN,
-                                "Repository: '${it.name}' is not a Maven repository and so is not currently supported in extensions."
+                            LogLevel.WARN,
+                            "Repository: '${it.name}' is not a Maven repository and so is not currently supported in extensions."
                         )
 
                         if (it is DefaultMavenLocalArtifactRepository)
                             logger.log(
-                                    LogLevel.WARN,
-                                    "Maven repository: '${it.name}' at '${it.url}' is a local repo. While currently supported, this is a bad practice and should be removed in production builds."
+                                LogLevel.WARN,
+                                "Maven repository: '${it.name}' at '${it.url}' is a local repo. While currently supported, this is a bad practice and should be removed in production builds."
                             )
                     }
                     .filterIsInstance<MavenArtifactRepository>()
@@ -103,51 +104,53 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =project.task
                         val type = if (b) "local" else "default"
                         val location = if (b) it.url.path else it.url.toString()
                         val settings = mutableMapOf(
-                                "location" to location.removeSuffix("/"),
-                                "type" to type
+                            "location" to location.removeSuffix("/"),
+                            "type" to type
                         )
                         ExtensionRepository(
-                                "simple-maven",
-                                settings
+                            "simple-maven",
+                            settings
                         )
                     }
                     .toList()
 
-            fun Sequence<String>.mapDependencies(): List<Map<String, String>> =
+                fun Sequence<String>.mapDependencies(): List<Map<String, String>> =
                     map(project.configurations::named)
-                            .map(NamedDomainObjectProvider<Configuration>::get)
-                            .flatMap(Configuration::getDependencies)
-                            .mapNotNull(YakClientExtension.Companion::ermDependency)
-                            .associateBy {
-                                it["descriptor"]
-                            } // We do this to filter duplicates, anything that has the same descriptor has to go.
-                            .map { it.value }
+                        .map(NamedDomainObjectProvider<Configuration>::get)
+                        .flatMap(Configuration::getDependencies)
+                        .mapNotNull(YakClientExtension.Companion::ermDependency)
+                        .associateBy {
+                            it["descriptor"]
+                        } // We do this to filter duplicates, anything that has the same descriptor has to go.
+                        .map { it.value }
 
 
-            yakclient.versionPartitionHandler.partitions
+                val erm = yakclient.erm
+                yakclient.partitions
                     .asSequence()
-                    .map(YakClientExtension.VersionPartition::extensionConfigurationName)
+                    .map { "${it.name}Extension" }
                     .mapDependencies()
-                    .forEach(yakclient.erm.extensions::add)
+                    .forEach(erm.extensions::add)
 
-            yakclient.erm.extensionRepositories.addAll(extensionRepositories.map(ExtensionRepository::settings))
+                erm.extensionRepositories.addAll(extensionRepositories.map(ExtensionRepository::settings))
 
-            yakclient.erm.versionPartitions.addAll(yakclient.versionPartitionHandler.partitions.map {
-                ExtensionVersionPartition(
+                erm.versionPartitions.addAll(yakclient.partitions.map {
+                    ExtensionVersionPartition(
                         it.name,
                         "META-INF/versioning/partitions/${it.name}",
                         it.supportedVersions.toMutableSet(),
                         extensionRepositories.toMutableList(),
                         listOf(
-                                it.sourceSet.apiConfigurationName,
-                                it.sourceSet.runtimeOnlyConfigurationName,
-                                it.sourceSet.implementationConfigurationName
+                            it.sourceSet.apiConfigurationName,
+                            it.sourceSet.runtimeOnlyConfigurationName,
+                            it.sourceSet.implementationConfigurationName
                         ).asSequence().mapDependencies().toMutableList(),
                         mutableListOf()
-                )
-            })
+                    )
+                })
 
-            yakclient.erm.mainPartition = yakclient.versionPartitionHandler.main.name
-        }
-    })
-}
+                erm.mainPartition = yakclient.partitions.find(VersionPartition::isMain)?.name
+                    ?: throw IllegalArgumentException("No main partition set! Set the partition with 'isMain' inside your version partition configuration")
+            }
+        })
+    }

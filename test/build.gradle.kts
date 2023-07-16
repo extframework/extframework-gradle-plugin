@@ -22,25 +22,30 @@ repositories {
 
 yakclient {
     model {
-        groupId = "net.yakclient"
-        name="test"
-        version="1.0-SNAPSHOT"
-
         extensionClass = "net.yakclient.test.MyExtension"
     }
 
     partitions {
-        val main by named {
-            dependencies {
-
+        val main = create("main") {
+            this.dependencies {
+                minecraft("1.19.2")
             }
-
-            supportedVersions.addAll(listOf(""))
         }
 
-        this.main = main
 
-        val nineteen = named("nineteen_two") {
+
+//        val main by named {
+//            dependencies {
+//
+//            }
+//
+//            supportedVersions.addAll(listOf(""))
+//        }
+//
+        val nineteen = create("nineteen_two") {
+            this.dependencies {
+
+            }
             dependencies {
                 minecraft("1.19.2")
                 implementation(main)
@@ -53,7 +58,7 @@ yakclient {
             supportedVersions.addAll(listOf("1.19.2", "1.18"))
         }
 
-        named("eighteen") {
+        create("eighteen") {
             dependencies {
                 implementation(nineteen)
                 implementation(main)

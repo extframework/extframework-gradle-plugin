@@ -29,6 +29,7 @@ dependencies {
     implementation("net.yakclient:common-util:1.0-SNAPSHOT")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
+
 }
 
 pluginBundle {
