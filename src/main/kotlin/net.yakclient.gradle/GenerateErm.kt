@@ -12,25 +12,28 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
+import java.io.File
 
 abstract class GenerateErm : DefaultTask() {
+    private val yakclient
+        get() = project.extensions.getByName("yakclient") as YakClientExtension
+
     @get:OutputFile
-    val ermPath = (project.buildDir.toPath() resolve "libs" resolve "erm.json").toFile()
+    val ermPath: Provider<File> = yakclient.erm.map {
+        (project.buildDir.toPath() resolve "libs" resolve "${it.name}-${it.version}-erm.json").toFile()
+    }
 
     @get:Input
     abstract val preprocessorOutput: MapProperty<String, FileCollection> // Partition name to file
 
-    override fun doLast(action: Action<in Task>): Task {
-        return super.doLast(action)
-    }
-
     @TaskAction
     fun generateErm() {
-        val yakclient = project.extensions.getByName("yakclient") as YakClientExtension
-
         val mapper = ObjectMapper().registerModule(KotlinModule.Builder().build())
 
         fun <K, V, T> Map<K, V>.mapValuesNotNull(transform: (Map.Entry<K, V>) -> T?): Map<K, T> {
@@ -48,16 +51,16 @@ abstract class GenerateErm : DefaultTask() {
                 }
             }
 
-        yakclient.erm.versionPartitions.forEach {
+        yakclient.erm.get().versionPartitions.forEach {
             val mixins = allMixins[it.name] ?: return@forEach
             it.mixins += mixins
         }
 
         val ermAsBytes =
-            ObjectMapper().registerModule(KotlinModule.Builder().build()).writeValueAsBytes(yakclient.erm)
+            ObjectMapper().registerModule(KotlinModule.Builder().build()).writeValueAsBytes(yakclient.erm.get())
 
-        ermPath.toPath().make()
-        ermPath.writeBytes(ermAsBytes)
+        ermPath.get().toPath().make()
+        ermPath.get().writeBytes(ermAsBytes)
     }
 }
 
@@ -125,7 +128,7 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                         .map { it.value }
 
 
-                val erm = yakclient.erm
+                val erm = yakclient.erm.get()
                 yakclient.partitions
                     .asSequence()
                     .map { "${it.name}Extension" }

@@ -12,6 +12,7 @@ import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.plugins.JvmEcosystemPlugin
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.tasks.Jar
@@ -29,7 +30,7 @@ class YakClientGradle : Plugin<Project> {
 
         val generateErm = project.registerGenerateErmTask(yakclient)
 
-        project.tasks.named("jar", Jar::class.java) { jar ->
+        val jar = project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)
             jar.from(generateErm)
 
@@ -40,7 +41,32 @@ class YakClientGradle : Plugin<Project> {
             }
         }
 
-        project.registerLaunchTask(yakclient)
+        val publishDevExtension = project.tasks.register("publishDevExtension", Copy::class.java) { copy ->
+            val basePath = yakclient.erm.map {
+                Path.of(
+                    it.groupId.replace('.', '/')
+                ).resolve(
+                    it.name
+                ).resolve(
+                    it.version
+                ).toString()
+            }
+            val ermOut = generateErm.get().outputs
+            ermOut.upToDateWhen { false }
+            copy.from(ermOut) { spec ->
+                spec.into(basePath)
+            }
+            val jarOut = jar.get().outputs
+            jarOut.upToDateWhen { false }
+            copy.from(jarOut) { spec ->
+                spec.into(basePath)
+            }
+
+            copy.destinationDir = project.mavenLocal().toFile()
+        }
+
+
+        project.registerLaunchTask(yakclient, publishDevExtension)
     }
 }
 
@@ -54,13 +80,14 @@ abstract class YakClientExtension(
         }
         VersionPartition(project, name, sourceSet)
     }
-    val sourceSets: SourceSetContainer = project.extensions.getByType(SourceSetContainer::class.java)
-    var erm: ExtensionRuntimeModel = ExtensionRuntimeModel(
-        "",
-        "",
-        "", versionPartitions = ArrayList()
-    )
-
+    internal val sourceSets: SourceSetContainer = project.extensions.getByType(SourceSetContainer::class.java)
+    val erm: Property<ExtensionRuntimeModel> = project.objects.property(ExtensionRuntimeModel::class.java)
+//    = ExtensionRuntimeModel(
+//        "",
+//        "",
+//        "", versionPartitions = ArrayList()
+//    )
+//
 //    > = project.provider {
 //        ExtensionRuntimeModel(
 //            project.group as String,
@@ -70,6 +97,20 @@ abstract class YakClientExtension(
 //        )
 //    }
 
+    init {
+        project.afterEvaluate {
+            if (!erm.isPresent) {
+                erm.set(
+                    ExtensionRuntimeModel(
+                        project.group as String,
+                        project.name,
+                        project.version as String,
+                        versionPartitions = ArrayList()
+                    )
+                )
+            }
+        }
+    }
 
 
     fun partitions(configure: Action<NamedDomainObjectContainer<VersionPartition>>) {
@@ -77,7 +118,14 @@ abstract class YakClientExtension(
     }
 
     fun model(action: Action<ExtensionRuntimeModel>) {
+        val erm = ExtensionRuntimeModel(
+            project.group as? String ?: "",
+            project.name,
+            project.version as? String ?: "",
+            versionPartitions = ArrayList()
+        )
         action.execute(erm)
+        this.erm.set(erm)
 //        erm = erm.map {
 //            action.execute(it)
 //            it
@@ -189,13 +237,15 @@ data class VersionPartition(
         fun minecraft(version: String) {
             minecraftVersion = version
 
-            val task = project.tasks.register("generateMinecraft${version}Sources", GenerateMcSources::class.java) {
-                it.minecraftVersion.set(version)
-            }
+            val taskName = "generateMinecraft${version}Sources"
+            val task =
+                project.tasks.findByName(taskName) ?: project.tasks.create(taskName, GenerateMcSources::class.java) {
+                    it.minecraftVersion.set(version)
+                }
 
             add(
                 "implementation",
-                project.files(task.get().outputs.files).apply {
+                project.files(task.outputs.files.asFileTree).apply {
                     builtBy(task)
                 }
             )
@@ -210,12 +260,3 @@ data class VersionPartition(
         return name
     }
 }
-//class GettingDelegate<out T>(
-//        private val provider: (String) -> T
-//) {
-//    private var cache: T? = null
-//
-//    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
-//        return cache ?: provider(property.name).also { cache = it }
-//    }
-//}

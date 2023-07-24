@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.7.10"
     kotlin("kapt") version "1.8.10"
-    id("net.yakclient") version "1.0"
+    id("net.yakclient") version "1.0.1"
     id("maven-publish")
 
 }
@@ -22,6 +22,7 @@ repositories {
 
 yakclient {
     model {
+        name = "yakgradle-ext-test"
         extensionClass = "net.yakclient.test.MyExtension"
     }
 
