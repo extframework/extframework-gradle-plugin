@@ -7,8 +7,7 @@ import net.yakclient.test.nineteen.two.NineteenTwo
 class Eighteen {
     fun eighteenStuff() {
         NineteenTwo()
-
-        TODO()
+        net.minecraft.client.Minecraft.ALT_FONT
     }
 }
 

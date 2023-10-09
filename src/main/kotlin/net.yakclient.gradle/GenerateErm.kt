@@ -12,10 +12,8 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.provider.MapProperty
-import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
@@ -51,9 +49,11 @@ abstract class GenerateErm : DefaultTask() {
                 }
             }
 
-        yakclient.erm.get().versionPartitions.forEach {
-            val mixins = allMixins[it.name] ?: return@forEach
-            it.mixins += mixins
+        yakclient.model { erm ->
+            erm.versionPartitions.forEach {
+                val mixins = allMixins[it.name] ?: return@forEach
+                it.mixins.addAll(mixins)
+            }
         }
 
         val ermAsBytes =
@@ -78,57 +78,56 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                 .mapValues { project.files(it.value.output.files) }
         )
 
-        task.doFirst(object : Action<Task> {
-            override fun execute(t: Task) {
-                val project = t.project
+        task.doFirst { t ->
+            val project = t.project
 
-                val extensionRepositories: List<ExtensionRepository> = project.repositories
-                    .asSequence()
-                    .onEach {
-                        if (it !is MavenArtifactRepository) logger.log(
+            val extensionRepositories: List<ExtensionRepository> = project.repositories
+                .asSequence()
+                .onEach {
+                    if (it !is MavenArtifactRepository) logger.log(
+                        LogLevel.WARN,
+                        "Repository: '${it.name}' is not a Maven repository and so is not currently supported in extensions."
+                    )
+
+                    if (it is DefaultMavenLocalArtifactRepository)
+                        logger.log(
                             LogLevel.WARN,
-                            "Repository: '${it.name}' is not a Maven repository and so is not currently supported in extensions."
+                            "Maven repository: '${it.name}' at '${it.url}' is a local repo. While currently supported, this is a bad practice and should be removed in production builds."
                         )
+                }
+                .filterIsInstance<MavenArtifactRepository>()
+                .associateBy { it.url }
+                .map { it.value }
+                .map {
+                    if (it.credentials.password != null || it.credentials.username != null)
+                        throw UnsupportedOperationException("Using credentials in repositories are not supported yet!")
 
-                        if (it is DefaultMavenLocalArtifactRepository)
-                            logger.log(
-                                LogLevel.WARN,
-                                "Maven repository: '${it.name}' at '${it.url}' is a local repo. While currently supported, this is a bad practice and should be removed in production builds."
-                            )
-                    }
-                    .filterIsInstance<MavenArtifactRepository>()
-                    .associateBy { it.url }
-                    .map { it.value }
-                    .map {
-                        if (it.credentials.password != null || it.credentials.username != null)
-                            throw UnsupportedOperationException("Using credentials in repositories are not supported yet!")
+                    val b = it is DefaultMavenLocalArtifactRepository
+                    val type = if (b) "local" else "default"
+                    val location = if (b) it.url.path else it.url.toString()
+                    val settings = mutableMapOf(
+                        "location" to location.removeSuffix("/"),
+                        "type" to type
+                    )
+                    ExtensionRepository(
+                        "simple-maven",
+                        settings
+                    )
+                }
+                .toList()
 
-                        val b = it is DefaultMavenLocalArtifactRepository
-                        val type = if (b) "local" else "default"
-                        val location = if (b) it.url.path else it.url.toString()
-                        val settings = mutableMapOf(
-                            "location" to location.removeSuffix("/"),
-                            "type" to type
-                        )
-                        ExtensionRepository(
-                            "simple-maven",
-                            settings
-                        )
-                    }
-                    .toList()
+            fun Sequence<String>.mapDependencies(): List<MutableMap<String, String>> =
+                map(project.configurations::named)
+                    .map(NamedDomainObjectProvider<Configuration>::get)
+                    .flatMap(Configuration::getDependencies)
+                    .mapNotNull(YakClientExtension.Companion::ermDependency)
+                    .associateBy {
+                        it["descriptor"]
+                    } // We do this to filter duplicates, anything that has the same descriptor has to go.
+                    .filterNot { it.key?.startsWith("net.yakclient:client-api") == true }
+                    .map { it.value.toMutableMap() }
 
-                fun Sequence<String>.mapDependencies(): List<Map<String, String>> =
-                    map(project.configurations::named)
-                        .map(NamedDomainObjectProvider<Configuration>::get)
-                        .flatMap(Configuration::getDependencies)
-                        .mapNotNull(YakClientExtension.Companion::ermDependency)
-                        .associateBy {
-                            it["descriptor"]
-                        } // We do this to filter duplicates, anything that has the same descriptor has to go.
-                        .map { it.value }
-
-
-                val erm = yakclient.erm.get()
+            yakclient.model { erm ->
                 yakclient.partitions
                     .asSequence()
                     .map { "${it.name}Extension" }
@@ -144,16 +143,31 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                         it.supportedVersions.toMutableSet(),
                         extensionRepositories.toMutableList(),
                         listOf(
-                            it.sourceSet.apiConfigurationName,
-                            it.sourceSet.runtimeOnlyConfigurationName,
-                            it.sourceSet.implementationConfigurationName
+                            it.dependencyHandler.includeConfiguration.name,
                         ).asSequence().mapDependencies().toMutableList(),
                         mutableListOf()
                     )
                 })
 
-                erm.mainPartition = yakclient.partitions.find(VersionPartition::isMain)?.name
-                    ?: throw IllegalArgumentException("No main partition set! Set the partition with 'isMain' inside your version partition configuration")
+                erm.mainPartition = MainVersionPartition(
+                    "main", "",
+                    extensionRepositories.toMutableList(),
+                    listOf(
+                        MAIN_INCLUDE_CONFIGURATION_NAME,
+                    ).asSequence().mapDependencies().toMutableList()
+                )
+
+                val tweakerSourceSet = yakclient.sourceSets.findByName("tweaker")
+                if (tweakerSourceSet != null)
+                    erm.tweakerPartition = ExtensionTweakerPartition(
+                        "META-INF/versioning/partitions/tweaker",
+                        extensionRepositories.toMutableList(),
+                        listOf(
+                            TWEAKER_INCLUDE_CONFIGURATION_NAME,
+                        ).asSequence().mapDependencies().toMutableList(),
+                        yakclient.tweakerPartition.entrypoint.orNull
+                            ?: throw IllegalArgumentException("You must set the tweaker entrypoint.")
+                    )
             }
-        })
+        }
     }

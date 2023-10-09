@@ -4,6 +4,9 @@ import com.durganmcbroom.artifact.resolver.open
 import com.durganmcbroom.artifact.resolver.simple.maven.HashType
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
+import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.ObjectMapper
 import net.yakclient.common.util.resolve
 import net.yakclient.common.util.resource.SafeResource
@@ -41,13 +44,37 @@ data class ExtArg(
     val repository: ExtRepoArg
 )
 
-fun preDownloadClient(version: String, project: Project): Path {
-    return project.buildDir.toPath() resolve "launch" resolve "client-$version.jar"
+public enum class ExtLoaderEnvironmentType {
+    PROD,
+    EXT_DEV,
+    INTERNAL_DEV
+}
 
+public data class ExtLoaderDevEnvironment(
+    val extension: ExtArg,
+    val mappingType: String
+)
+
+data class ExtLoaderEnvironment(
+//    @JsonProperty("")
+    val type: String,
+    val context: ExtLoaderDevEnvironment
+)
+
+data class ExtLoaderArgs(
+    @JsonProperty("minecraft-version")
+    val mcVersion: String,
+    @JsonProperty("minecraft-args")
+    val mcArgs: List<String>,
+    val environment: ExtLoaderEnvironment
+)
+
+fun preDownloadClient(version: String): Path {
+    return Path.of(System.getProperty("user.home")) resolve ".yakclient" resolve "client-$version.jar"
 }
 
 fun downloadClient(version: String, project: Project, devMode: Boolean = false) {
-    val outputPath = preDownloadClient(version, project)
+    val outputPath = preDownloadClient(version)
 
     if (Files.exists(outputPath)) return
 
@@ -108,13 +135,14 @@ fun Project.registerLaunchTask(yakclient: YakClientExtension, publishDevExtensio
         val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
         exec.dependsOn(publishDevExtension.get())
 
-        val path = preDownloadClient("1.0-SNAPSHOT", project)
+        val path = preDownloadClient("1.0-SNAPSHOT")
         val (desc, repo) = preCacheExtension(this, yakclient)
 
         exec.classpath(path)
         exec.mainClass.set("net.yakclient.client.MainKt")
-        val launchPath = buildDir.toPath() resolve "launch"
-        val args = mutableListOf("-w", launchPath.toString(), "-v", mcVersion, "--accessToken", "")
+
+        val launchPath = Path.of(System.getProperty("user.home")) resolve ".yakclient"
+        val args = mutableListOf<String>()
         if (devMode) {
             args.add("--devmode")
         }
@@ -127,7 +155,17 @@ fun Project.registerLaunchTask(yakclient: YakClientExtension, publishDevExtensio
         exec.setStandardInput(
             ObjectMapper().registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
                 .writeValueAsBytes(
-                    listOf(ExtArg(desc, repo))
+                        ExtLoaderArgs(
+                            mcVersion,
+                            listOf("--accessToken", ""),
+                            ExtLoaderEnvironment(
+                                "extension-dev",
+                                ExtLoaderDevEnvironment(
+                                    ExtArg(desc, repo),
+                                    yakclient.erm.get().mappingType
+                                )
+                            )
+                    )
                 ).let(::ByteArrayInputStream)
         )
 

@@ -9,12 +9,20 @@ data class ExtensionRuntimeModel(
     var packagingType: String = "jar", // Jar, War, Zip, etc...
 
     var extensionClass: String = "",
-    var mainPartition: String = "", // its name
+    var mainPartition: MainVersionPartition = MainVersionPartition(
+        "main",
+        "",
+        mutableListOf(),
+        mutableListOf()
+    ),
 
     val extensionRepositories: MutableList<Map<String, String>> = ArrayList(),
     val extensions: MutableList<Map<String, String>> = ArrayList(),
 
-    val versionPartitions: MutableList<ExtensionVersionPartition>,
+    val versionPartitions: MutableList<ExtensionVersionPartition> = ArrayList(),
+    var tweakerPartition: ExtensionTweakerPartition? = null,
+
+    var mappingType: String
 )
 
 data class ExtensionRepository(
@@ -34,14 +42,40 @@ data class ExtensionInjection(
     var priority: Int = 0
 )
 
+
+interface ExtensionPartition {
+    var name: String
+    var path: String
+    val repositories: MutableList<ExtensionRepository>
+    val dependencies: MutableList<MutableMap<String, String>>
+}
+
+data class MainVersionPartition(
+    override var name: String,
+    override var path: String,
+    override val repositories: MutableList<ExtensionRepository>,
+    override val dependencies: MutableList<MutableMap<String, String>>
+) : ExtensionPartition
+
 data class ExtensionVersionPartition(
-    var name: String,
-    var path: String,
+    override var name: String,
+    override var path: String,
 
-    val supportedVersions: MutableSet<String>,
+    val supportedVersions: Set<String>,
 
-    val repositories: MutableList<ExtensionRepository>,
-    val dependencies: MutableList<Map<String, String>>,
+    override val repositories: MutableList<ExtensionRepository>,
+    override val dependencies: MutableList<MutableMap<String, String>>,
 
-    val mixins: MutableList<ExtensionMixin>
-)
+    val mixins: MutableList<ExtensionMixin>,
+) : ExtensionPartition
+
+data class ExtensionTweakerPartition(
+    override var path: String,
+
+    override val repositories: MutableList<ExtensionRepository>,
+    override val dependencies: MutableList<MutableMap<String, String>>,
+
+    var entrypoint: String
+) : ExtensionPartition {
+    override var name: String = "tweaker"
+}

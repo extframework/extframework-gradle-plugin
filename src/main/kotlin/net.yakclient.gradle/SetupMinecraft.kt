@@ -1,11 +1,13 @@
 package net.yakclient.gradle
 
+import net.yakclient.archive.mapper.ArchiveMapping
 import net.yakclient.archive.mapper.parsers.ProGuardMappingParser
 import net.yakclient.archive.mapper.transform.MappingDirection
 import net.yakclient.archive.mapper.transform.transformArchive
 import net.yakclient.archives.Archives
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
+import net.yakclient.internal.api.mapping.MappingsProvider
 import net.yakclient.launchermeta.handler.*
 import java.io.*
 import java.nio.file.Files
@@ -30,12 +32,19 @@ fun getMinecraftPaths(version: String, basePath: Path) : List<Path>? {
     return parseDependencyMarker(dependenciesMarker) + minecraftJarPath
 }
 
-fun setupMinecraft(version: String, basePath: Path) : Pair<Path, List<Path>> {
+fun setupMinecraft(
+    version: String,
+    basePath: Path,
+    mapper: MappingsProvider,
+    mapperType: String // Redundant but we need to make sure...
+) : Pair<Path, List<Path>> {
     val (metadata, cached) = cacheMinecraft(
         version,
-        basePath
+        basePath,
+        mapperType
     )
-    val (mc, mappings, dependencies) = metadata
+    val (mc, dependencies) = metadata
+    val mappings = mapper.forIdentifier(version)
 
     if (cached) remapJar(mc, mappings, dependencies)
 
@@ -44,20 +53,19 @@ fun setupMinecraft(version: String, basePath: Path) : Pair<Path, List<Path>> {
 
 data class McMetadata(
     val mcPath: Path,
-    val mappingsPath: Path,
     val dependencies: List<Path>,
 )
 
-private fun cacheMinecraft(version: String, basePath: Path): Pair<McMetadata, Boolean> {
-    val minecraftPath = basePath resolve "net" resolve "minecraft" resolve "client" resolve version
+private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String): Pair<McMetadata, Boolean> {
+    val minecraftPath = basePath resolve "net" resolve "minecraft" resolve "client" resolve version resolve mappingsType
     val minecraftJarPath = minecraftPath resolve "minecraft-${version}.jar"
-    val mappingsPath = minecraftPath resolve "minecraft-mappings-${version}.txt"
+//    val mappingsPath = minecraftPath resolve "minecraft-mappings-${version}.txt"
 
     val libPath = minecraftPath resolve "libs"
 
     val dependenciesMarker = minecraftPath resolve ".MINECRAFT_LIBS_MARKER"
 
-    val b = !(minecraftJarPath.exists() && mappingsPath.exists() && dependenciesMarker.exists())
+    val b = !(minecraftJarPath.exists()  && dependenciesMarker.exists())
     if (b) {
         val versionManifest = loadVersionManifest()
 
@@ -74,12 +82,12 @@ private fun cacheMinecraft(version: String, basePath: Path): Pair<McMetadata, Bo
             clientResource copyToBlocking minecraftJarPath
         }
 
-        // Download mappings
-        if (mappingsPath.make()) {
-            val mappingsResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT_MAPPINGS]?.toResource()
-                ?: throw IllegalArgumentException("Cant find client mappings in launch metadata?")
-            mappingsResource copyToBlocking mappingsPath
-        }
+//        // Download mappings
+//        if (mappingsPath.make()) {
+//            val mappingsResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT_MAPPINGS]?.toResource()
+//                ?: throw IllegalArgumentException("Cant find client mappings in launch metadata?")
+//            mappingsResource copyToBlocking mappingsPath
+//        }
 
         if (dependenciesMarker.make()) {
             val processor = DefaultMetadataProcessor()
@@ -104,7 +112,7 @@ private fun cacheMinecraft(version: String, basePath: Path): Pair<McMetadata, Bo
         }
     }
 
-    return McMetadata(minecraftJarPath, mappingsPath, parseDependencyMarker(dependenciesMarker)) to b
+    return McMetadata(minecraftJarPath, parseDependencyMarker(dependenciesMarker)) to b
 }
 
 private fun parseDependencyMarker(path: Path) : List<Path> {
@@ -113,12 +121,9 @@ private fun parseDependencyMarker(path: Path) : List<Path> {
     return reader.lineSequence().map(Path::of).toList()
 }
 
-fun remapJar(jarPath: Path, mappingsPath: Path, dependencies: List<Path>) {
+fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>) {
     val archive = Archives.find(jarPath, Archives.Finders.ZIP_FINDER)
     val libArchives = dependencies.map(Archives.Finders.ZIP_FINDER::find)
-    val input = FileInputStream(mappingsPath.toFile())
-
-    val mappings = ProGuardMappingParser.parse(input)
 
     transformArchive(
         archive,
