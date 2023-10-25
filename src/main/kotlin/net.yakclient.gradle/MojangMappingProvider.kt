@@ -3,14 +3,12 @@ package net.yakclient.gradle
 import kotlinx.coroutines.runBlocking
 import net.yakclient.archive.mapper.ArchiveMapping
 import net.yakclient.archive.mapper.parsers.ProGuardMappingParser
-import net.yakclient.boot.store.CachingDataStore
 import net.yakclient.boot.store.DataAccess
-import net.yakclient.boot.store.DataStore
 import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.resolve
 import net.yakclient.common.util.resource.SafeResource
 import net.yakclient.common.util.toResource
-import net.yakclient.internal.api.mapping.MappingsProvider
+import net.yakclient.components.extloader.api.mapping.MappingsProvider
 import net.yakclient.launchermeta.handler.clientMappings
 import net.yakclient.launchermeta.handler.loadVersionManifest
 import net.yakclient.launchermeta.handler.metadata

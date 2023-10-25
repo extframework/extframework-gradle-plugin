@@ -1,9 +1,7 @@
 import groovy.util.Node
 import groovy.util.NodeList
-import net.yakclient.gradle.ExtensionRule
-import net.yakclient.gradle.extensionInclude
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.lang.RuntimeException
+//import net.yakclient.gradle.extensionInclude
+//import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.7.10"
@@ -27,26 +25,9 @@ repositories {
         url = uri("http://maven.yakclient.net/snapshots")
     }
 }
-//
-//@CacheableRule
-//abstract class TargetJvmVersionRule @Inject constructor(val jvmVersion: Int) : ComponentMetadataRule {
-//    @get:Inject abstract val objects: ObjectFactory
-//
-//    override fun execute(context: ComponentMetadataContext) {
-//        println("Hey test this please??!")
-//        throw RuntimeException("Please")
-//        context.details.withVariant("compile") {
-//            attributes {
-//                attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, jvmVersion)
-//                attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
-//            }
-//        }
-//    }
-//}
 
 dependencies {
     implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-    implementation(yakclient.tweakerPartition.map { it.sourceSet.output })
 }
 
 tasks.jar {
@@ -55,21 +36,20 @@ tasks.jar {
 
 yakclient {
     model {
-        name = "yakgradle-ext-test"
+        name = "yakgradle-ext-test-2"
         groupId = "net.yakclient.extensions"
-        extensionClass = "net.yakclient.test.MyExtension"
+        extensionClass = "net.yakclient.extensions.test2.MyExtension2"
     }
 
     mappingType = "mojang/deobfuscated"
 
     publications {
         groupId = "net.yakclient.extensions"
-        artifactId = "yakgradle-ext-test-${name}"
+        artifactId = "yakgradle-ext-test-2-${name}"
     }
 
-
     tweakerPartition {
-        entrypoint.set("net.yakclient.extensions.example.tweaker.TweakerEntry")
+        entrypoint.set("net.yakclient.extensions.test2.TweakerTest2")
 
         this.dependencies {
             implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
@@ -82,39 +62,23 @@ yakclient {
     }
 
     partitions {
-        val nineteen = create("nineteen_two") {
+        val latest by creating {
             this.dependencies {
                 implementation(main)
-                minecraft("1.19.2")
+                minecraft("1.20.1")
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
 
                 implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-                "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+                "kaptLatest"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
             }
 
-            supportedVersions.addAll(listOf("1.19.2", "1.18"))
-        }
-
-        create("eighteen") {
-            this.dependencies {
-                implementation(nineteen)
-                minecraft("1.18")
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
-
-                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-                "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
-            }
-
-            supportedVersions.addAll(listOf("1.18"))
+            supportedVersions.addAll(listOf("1.19.2", "1.20.1"))
         }
     }
-
-    extension("net.yakclient.extensions:yakgradle-ext-test-2:1.0-SNAPSHOT")
 }
 
 publishing {
     publications {
-
         create<MavenPublication>("prod") {
             from(components["java"])
             artifact(tasks.generateErm) {
@@ -122,7 +86,7 @@ publishing {
             }
 
             groupId = "net.yakclient.extensions"
-            artifactId = "yakgradle-ext-test"
+            artifactId = "yakgradle-ext-test-2"
         }
     }
 }

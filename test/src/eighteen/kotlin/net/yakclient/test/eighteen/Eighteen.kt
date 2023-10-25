@@ -13,6 +13,5 @@ class Eighteen {
 
 class Injection() {
     fun something() {
-
     }
 }

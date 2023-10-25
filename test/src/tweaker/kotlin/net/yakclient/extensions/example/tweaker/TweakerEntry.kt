@@ -1,7 +1,9 @@
 package net.yakclient.extensions.example.tweaker
 
-import net.yakclient.internal.api.environment.ExtLoaderEnvironment
-import net.yakclient.internal.api.tweaker.EnvironmentTweaker
+import net.yakclient.components.extloader.api.environment.ExtLoaderEnvironment
+import net.yakclient.components.extloader.api.tweaker.EnvironmentTweaker
+import net.yakclient.extensions.test2.TweakerTest2
+
 
 public class TweakerEntry : EnvironmentTweaker {
     public companion object {
@@ -11,6 +13,7 @@ public class TweakerEntry : EnvironmentTweaker {
 
     override fun tweak(environment: ExtLoaderEnvironment): ExtLoaderEnvironment {
         println("Could have tweaked, but i choose not to.")
+       println(TweakerTest2.something)
         tweaked = false
         return environment
     }

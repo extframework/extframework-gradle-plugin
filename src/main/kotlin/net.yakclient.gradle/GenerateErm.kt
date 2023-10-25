@@ -24,7 +24,7 @@ abstract class GenerateErm : DefaultTask() {
 
     @get:OutputFile
     val ermPath: Provider<File> = yakclient.erm.map {
-        (project.buildDir.toPath() resolve "libs" resolve "${it.name}-${it.version}-erm.json").toFile()
+        (project.buildDir.toPath() resolve "libs" resolve "erm.json").toFile()
     }
 
     @get:Input
@@ -45,7 +45,7 @@ abstract class GenerateErm : DefaultTask() {
                 val file = files.asFileTree.find { it.name.contains("mixin-annotations.json") }
 
                 file?.readBytes()?.let {
-                    mapper.readValue<List<ExtensionMixin>>(it)
+                    mapper.readValue<List<MutableExtensionMixin>>(it)
                 }
             }
 
@@ -64,7 +64,7 @@ abstract class GenerateErm : DefaultTask() {
     }
 }
 
-fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
+internal fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
     project.tasks.register("generateErm", GenerateErm::class.java) { task ->
         val sourceSets = yakclient.sourceSets
 
@@ -81,7 +81,7 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
         task.doFirst { t ->
             val project = t.project
 
-            val extensionRepositories: List<ExtensionRepository> = project.repositories
+            val extensionRepositories: List<MutableExtensionRepository> = project.repositories
                 .asSequence()
                 .onEach {
                     if (it !is MavenArtifactRepository) logger.log(
@@ -109,7 +109,7 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                         "location" to location.removeSuffix("/"),
                         "type" to type
                     )
-                    ExtensionRepository(
+                    MutableExtensionRepository(
                         "simple-maven",
                         settings
                     )
@@ -134,10 +134,10 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                     .mapDependencies()
                     .forEach(erm.extensions::add)
 
-                erm.extensionRepositories.addAll(extensionRepositories.map(ExtensionRepository::settings))
+                erm.extensionRepositories.addAll(extensionRepositories.map(MutableExtensionRepository::settings))
 
                 erm.versionPartitions.addAll(yakclient.partitions.map {
-                    ExtensionVersionPartition(
+                    MutableExtensionVersionPartition(
                         it.name,
                         "META-INF/versioning/partitions/${it.name}",
                         it.supportedVersions.toMutableSet(),
@@ -149,7 +149,7 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                     )
                 })
 
-                erm.mainPartition = MainVersionPartition(
+                erm.mainPartition = MutableMainVersionPartition(
                     "main", "",
                     extensionRepositories.toMutableList(),
                     listOf(
@@ -157,15 +157,14 @@ fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                     ).asSequence().mapDependencies().toMutableList()
                 )
 
-                val tweakerSourceSet = yakclient.sourceSets.findByName("tweaker")
-                if (tweakerSourceSet != null)
-                    erm.tweakerPartition = ExtensionTweakerPartition(
+                if (yakclient.tweakerPartition.isPresent)
+                    erm.tweakerPartition = MutableExtensionTweakerPartition(
                         "META-INF/versioning/partitions/tweaker",
                         extensionRepositories.toMutableList(),
                         listOf(
                             TWEAKER_INCLUDE_CONFIGURATION_NAME,
                         ).asSequence().mapDependencies().toMutableList(),
-                        yakclient.tweakerPartition.entrypoint.orNull
+                        yakclient.tweakerPartition.get().entrypoint.orNull
                             ?: throw IllegalArgumentException("You must set the tweaker entrypoint.")
                     )
             }

@@ -1,13 +1,12 @@
 package net.yakclient.gradle
 
 import net.yakclient.archive.mapper.ArchiveMapping
-import net.yakclient.archive.mapper.parsers.ProGuardMappingParser
 import net.yakclient.archive.mapper.transform.MappingDirection
 import net.yakclient.archive.mapper.transform.transformArchive
 import net.yakclient.archives.Archives
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
-import net.yakclient.internal.api.mapping.MappingsProvider
+import net.yakclient.components.extloader.api.mapping.MappingsProvider
 import net.yakclient.launchermeta.handler.*
 import java.io.*
 import java.nio.file.Files

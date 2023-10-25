@@ -1,7 +1,7 @@
 package net.yakclient.gradle
 
 
-data class ExtensionRuntimeModel(
+data class MutableExtensionRuntimeModel(
     var groupId: String,
     var name: String,
     var version: String,
@@ -9,7 +9,7 @@ data class ExtensionRuntimeModel(
     var packagingType: String = "jar", // Jar, War, Zip, etc...
 
     var extensionClass: String = "",
-    var mainPartition: MainVersionPartition = MainVersionPartition(
+    var mainPartition: MutableMainVersionPartition = MutableMainVersionPartition(
         "main",
         "",
         mutableListOf(),
@@ -19,63 +19,63 @@ data class ExtensionRuntimeModel(
     val extensionRepositories: MutableList<Map<String, String>> = ArrayList(),
     val extensions: MutableList<Map<String, String>> = ArrayList(),
 
-    val versionPartitions: MutableList<ExtensionVersionPartition> = ArrayList(),
-    var tweakerPartition: ExtensionTweakerPartition? = null,
+    val versionPartitions: MutableList<MutableExtensionVersionPartition> = ArrayList(),
+    var tweakerPartition: MutableExtensionTweakerPartition? = null,
 
     var mappingType: String
 )
 
-data class ExtensionRepository(
+data class MutableExtensionRepository(
     var type: String,
     val settings: MutableMap<String, String>
 )
 
-data class ExtensionMixin(
+data class MutableExtensionMixin(
     var classname: String,
     var destination: String,
-    val injections: MutableList<ExtensionInjection>
+    val injections: MutableList<MutableExtensionInjection>
 )
 
-data class ExtensionInjection(
+data class MutableExtensionInjection(
     var type: String,
     val options: MutableMap<String, String>,
     var priority: Int = 0
 )
 
 
-interface ExtensionPartition {
+interface MutableExtensionPartition {
     var name: String
     var path: String
-    val repositories: MutableList<ExtensionRepository>
+    val repositories: MutableList<MutableExtensionRepository>
     val dependencies: MutableList<MutableMap<String, String>>
 }
 
-data class MainVersionPartition(
+data class MutableMainVersionPartition(
     override var name: String,
     override var path: String,
-    override val repositories: MutableList<ExtensionRepository>,
+    override val repositories: MutableList<MutableExtensionRepository>,
     override val dependencies: MutableList<MutableMap<String, String>>
-) : ExtensionPartition
+) : MutableExtensionPartition
 
-data class ExtensionVersionPartition(
+data class MutableExtensionVersionPartition(
     override var name: String,
     override var path: String,
 
     val supportedVersions: Set<String>,
 
-    override val repositories: MutableList<ExtensionRepository>,
+    override val repositories: MutableList<MutableExtensionRepository>,
     override val dependencies: MutableList<MutableMap<String, String>>,
 
-    val mixins: MutableList<ExtensionMixin>,
-) : ExtensionPartition
+    val mixins: MutableList<MutableExtensionMixin>,
+) : MutableExtensionPartition
 
-data class ExtensionTweakerPartition(
+data class MutableExtensionTweakerPartition(
     override var path: String,
 
-    override val repositories: MutableList<ExtensionRepository>,
+    override val repositories: MutableList<MutableExtensionRepository>,
     override val dependencies: MutableList<MutableMap<String, String>>,
 
     var entrypoint: String
-) : ExtensionPartition {
+) : MutableExtensionPartition {
     override var name: String = "tweaker"
 }

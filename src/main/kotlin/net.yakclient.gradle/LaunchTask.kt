@@ -129,7 +129,7 @@ fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescri
 //            }
 //    }
 
-fun Project.registerLaunchTask(yakclient: YakClientExtension, publishDevExtension: TaskProvider<Copy>) =
+internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishDevExtension: TaskProvider<Copy>) =
     tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
         val mcVersion: String by properties
         val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
