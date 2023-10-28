@@ -82,7 +82,6 @@ private inline fun <reified T> Project.property(default: () -> T? = { null }): P
 abstract class YakClientExtension(
     private val project: Project
 ) {
-    private val buildExtensionPath = project.projectDir.toPath() resolve "build-ext"
     internal val partitions = project.container(VersionPartition::class.java) { name ->
         check(name != "main" && name != "tweaker") { "Illegal partition name: '$name', this is a reserved partition name." }
 
@@ -103,10 +102,6 @@ abstract class YakClientExtension(
     val extensionConfiguration = project.configurations.create("extension")
     val mappingProviders = ObjectContainerImpl<MappingsProvider>()
     val tweakerPartition: Property<TweakerPartition> = project.property()
-    val publicationConfiguration: Property<Action<MavenPublication>> = project.property {
-        Action<MavenPublication> {}
-    }
-
     init {
         mappingProviders.register(
             MojangMappingProvider.REAL_TYPE,
@@ -124,10 +119,6 @@ abstract class YakClientExtension(
 
     fun partitions(configure: Action<NamedDomainObjectContainer<VersionPartition>>) {
         configure.execute(partitions)
-    }
-
-    fun publications(action: Action<MavenPublication>) {
-        publicationConfiguration.set(action)
     }
 
     fun tweakerPartition(configure: Action<TweakerPartition>) {

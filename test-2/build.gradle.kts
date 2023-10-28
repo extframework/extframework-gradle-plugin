@@ -80,7 +80,7 @@ yakclient {
 publishing {
     publications {
         create<MavenPublication>("prod") {
-            from(components["java"])
+            artifact(tasks.jar)
             artifact(tasks.generateErm) {
                 classifier = "erm"
             }

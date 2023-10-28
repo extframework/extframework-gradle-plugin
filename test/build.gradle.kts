@@ -55,12 +55,6 @@ yakclient {
 
     mappingType = "mojang/deobfuscated"
 
-    publications {
-        groupId = "net.yakclient.extensions"
-        artifactId = "yakgradle-ext-test-${name}"
-    }
-
-
     tweakerPartition {
         entrypoint.set("net.yakclient.extensions.example.tweaker.TweakerEntry")
 
@@ -109,7 +103,7 @@ publishing {
     publications {
 
         create<MavenPublication>("prod") {
-            from(components["java"])
+            artifact(tasks.jar)
             artifact(tasks.generateErm) {
                 classifier = "erm"
             }
