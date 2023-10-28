@@ -5,6 +5,7 @@ import net.yakclient.components.extloader.api.tweaker.EnvironmentTweaker
 
 class TweakerTest2 : EnvironmentTweaker {
     override fun tweak(environment: ExtLoaderEnvironment): ExtLoaderEnvironment {
+        println("Test test tweaker ran!")
         return environment
     }
 

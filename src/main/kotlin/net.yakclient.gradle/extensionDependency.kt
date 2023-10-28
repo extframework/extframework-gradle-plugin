@@ -1,53 +1,81 @@
 package net.yakclient.gradle
 
+import com.durganmcbroom.artifact.resolver.Artifact
+import com.durganmcbroom.artifact.resolver.ResolutionContext
+import com.durganmcbroom.artifact.resolver.simple.maven.HashType
+import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactRequest
+import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
+import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
 import net.yakclient.archives.ArchiveReference
 import net.yakclient.archives.Archives
+import net.yakclient.boot.dependency.DependencyTypeContainer
+import net.yakclient.boot.main.initMaven
+import net.yakclient.boot.util.toSafeResource
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
-import net.yakclient.common.util.resource.SafeResource
-import net.yakclient.components.extloader.api.extension.ExtensionPartition
-import net.yakclient.components.extloader.api.extension.ExtensionRuntimeModel
+import net.yakclient.components.extloader.api.extension.ExtensionTweakerPartition
+import net.yakclient.components.extloader.api.extension.ExtensionVersionPartition
+import net.yakclient.components.extloader.api.extension.MainVersionPartition
+import net.yakclient.components.extloader.extension.artifact.ExtensionArtifactMetadata
+import net.yakclient.components.extloader.extension.artifact.ExtensionRepositoryFactory
 import net.yakclient.launchermeta.handler.copyToBlocking
+import net.yakclient.`object`.ObjectContainerImpl
+import org.gradle.api.DefaultTask
+import org.gradle.api.Project
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+import org.gradle.api.file.ConfigurableFileTree
+import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputDirectories
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.OutputFiles
+import org.gradle.api.tasks.TaskAction
 import java.io.FileOutputStream
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
+import kotlin.io.path.writeText
 
 
-private fun newEmptyArchive(): ArchiveReference {
-    return object : ArchiveReference {
-        private val entries: MutableMap<String, ArchiveReference.Entry> = HashMap()
-
-
-        override val isClosed: Boolean = false
-        override val location: URI
-            get() = TODO("Not yet implemented")
-        override val modified: Boolean = entries.isNotEmpty()
-        override val name: String? = null
-        override val reader: ArchiveReference.Reader = object : ArchiveReference.Reader {
-            override fun entries(): Sequence<ArchiveReference.Entry> {
-                return entries.values.asSequence()
-            }
-
-            override fun of(name: String): ArchiveReference.Entry? {
-                return entries[name]
-            }
-        }
-        override val writer: ArchiveReference.Writer = object : ArchiveReference.Writer {
-            override fun put(entry: ArchiveReference.Entry) {
-                entries[entry.name] = entry
-            }
-
-            override fun remove(name: String) {
-                entries.remove(name)
-            }
-
+private fun newEmptyArchive() = object : ArchiveReference {
+    private val entries: MutableMap<String, () -> ArchiveReference.Entry> = HashMap()
+    override val isClosed: Boolean = false
+    override val location: URI
+        get() = TODO("Not yet implemented")
+    override val modified: Boolean = entries.isNotEmpty()
+    override val name: String? = null
+    override val reader: ArchiveReference.Reader = object : ArchiveReference.Reader {
+        override fun entries(): Sequence<ArchiveReference.Entry> {
+            return entries.values.asSequence().map { it() }
         }
 
-        override fun close() {}
+        override fun of(name: String): ArchiveReference.Entry? {
+            return entries[name]?.invoke()
+        }
     }
+    override val writer = object : ArchiveReference.Writer {
+        override fun put(entry: ArchiveReference.Entry) {
+            throw UnsupportedOperationException("")
+        }
+
+        fun put(name: String, entry: () -> ArchiveReference.Entry) {
+            entries[name] = entry
+        }
+
+        override fun remove(name: String) {
+            entries.remove(name)
+        }
+
+    }
+
+    override fun close() {}
 }
+
 
 private fun ArchiveReference.write(path: Path) {
     JarOutputStream(FileOutputStream(path.toFile())).use { target ->
@@ -71,55 +99,142 @@ private fun ArchiveReference.write(path: Path) {
             target.closeEntry()
         }
     }
-
-
 }
 
-// A List of Pairs is preferable as it only connotes iteration and not look up by keys, which is
-// not something an ExtensionPartition is required to implement.
-internal fun downloadBuildExtension(
-    path: Path,
-    resource: SafeResource,
-    erm: ExtensionRuntimeModel
-): List<Pair<ExtensionPartition, Path>> {
-    val jarPrefix = "${erm.name}-${erm.version}"
+abstract class DownloadExtensions : DefaultTask() {
+    private val basePath = project.projectDir.toPath() resolve "build-ext"
+    private val yakclient
+        get() = project.extensions.getByType(YakClientExtension::class.java)
 
-    val basePath = path resolve erm.groupId.replace('.', '/') resolve erm.name resolve erm.version
-    val resourcePath = basePath resolve "$jarPrefix.jar"
+    @get:Input
+    abstract val notation: Property<Any>
 
-    resourcePath.make()
-    resource copyToBlocking resourcePath
-
-    val archive = Archives.find(resourcePath, Archives.Finders.ZIP_FINDER)
-
-    val subArchives = (erm.versionPartitions + erm.mainPartition + listOfNotNull(erm.tweakerPartition)).associate {
-        it to newEmptyArchive()
+    @get:Internal
+    val output: Provider<Map<String, ConfigurableFileTree>> = project.provider {
+        (yakclient.partitions.map { it.name } + listOfNotNull(
+            "main",
+            if (yakclient.tweakerPartition.isPresent) "tweaker" else null
+        )).associateWith {
+            project.fileTree(basePath resolve it) { tree ->
+                tree.builtBy(this)
+            }
+        }
     }
 
-    archive.reader.entries().forEach { e ->
-        val splitPath = e.name.split("/")
-        val partition = subArchives
-            .filter { (it) -> e.name.startsWith(it.path) }
-            .maxByOrNull { (it) ->
-                it.path.split("/").zip(splitPath)
-                    .takeWhile { (f, s) -> f == s }
-                    .count()
-            } ?: return@forEach
+    @TaskAction
+    fun download() {
+        val dependency = project.dependencies.add("extension", notation.get())!!
 
-        partition.value.writer.put(
-            ArchiveReference.Entry(
-                e.name.removePrefix(partition.key.path).removePrefix("/"),
-                e.resource,
-                e.isDirectory,
-                partition.value
+        val dependencyType: DependencyTypeContainer = ObjectContainerImpl()
+        initMaven(dependencyType, Files.createTempDirectory("yak-gradle-m2"))
+
+        val factory = ExtensionRepositoryFactory(dependencyType)
+
+        val request = SimpleMavenArtifactRequest(
+            SimpleMavenDescriptor(
+                dependency.group!!,
+                dependency.name,
+                dependency.version!!,
+                null
             )
         )
-    }
 
-    return subArchives.map { (t, u) ->
-        val partPath = basePath resolve "partitions" resolve "$jarPrefix-${t.name}.jar"
-        partPath.make()
-        u.write(partPath)
-        t to partPath
+        val baseArtifact: Artifact = project.repositories.map {
+            when (it) {
+                is DefaultMavenLocalArtifactRepository -> SimpleMavenRepositorySettings.local()
+                is MavenArtifactRepository -> SimpleMavenRepositorySettings.default(
+                    it.url.toString(),
+                    preferredHash = HashType.SHA1
+                )
+
+                else -> throw IllegalArgumentException("Repository type: '${it.name}' is not currently supported.")
+            }
+        }.map(factory::createNew).map {
+            ResolutionContext(
+                it,
+                it.stubResolver,
+                factory.artifactComposer
+            )
+        }.firstNotNullOfOrNull {
+            it.getAndResolve(request).orNull()
+        } ?: throw IllegalArgumentException("Unable to find extension: '$notation'")
+
+
+        fun downloadArtifact(artifact: Artifact) {
+            val erm = (artifact.metadata as ExtensionArtifactMetadata).erm
+
+            val jarPrefix = "${erm.name}-${erm.version}"
+
+            val resourcePath = Files.createTempFile(jarPrefix, ".jar")
+
+            val baseResource = artifact.metadata.resource?.toSafeResource() ?: return
+
+            resourcePath.make()
+            baseResource copyToBlocking resourcePath
+
+            val archive = Archives.find(resourcePath, Archives.Finders.ZIP_FINDER)
+
+            val subArchives =
+                (erm.versionPartitions + erm.mainPartition + listOfNotNull(erm.tweakerPartition)).associateWith { newEmptyArchive() }
+
+            archive.reader.entries().associate { e ->
+                val splitPath = e.name.split("/")
+                val partition = subArchives
+                    .filter { (it) -> e.name.startsWith(it.path) }
+                    .maxByOrNull { (it) ->
+                        it.path.split("/").zip(splitPath)
+                            .takeWhile { (f, s) -> f == s }
+                            .count()
+                    }!!
+
+                e.name to partition
+            }.forEach { (name, partition) ->
+                archive.reader
+                val newName = name.removePrefix(partition.key.path).removePrefix("/")
+                partition.value.writer.put(
+                    newName
+                ) {
+                    val e = archive.reader[name]!!
+
+                    ArchiveReference.Entry(
+                        newName,
+                        e.resource,
+                        e.isDirectory,
+                        archive
+                    )
+                }
+            }
+
+            subArchives.flatMap { (partition, archive) ->
+                val whichPartition = when (partition) {
+                    is MainVersionPartition -> listOf("main")
+                    is ExtensionTweakerPartition -> listOf("tweaker")
+                    is ExtensionVersionPartition -> yakclient.partitions.filter {
+                        it.supportedVersions.intersect(partition.supportedVersions).isNotEmpty()
+                    }.map { it.name }
+                    else -> throw IllegalArgumentException("Unknown partition type: '${partition::class.java.name}'")
+                }
+
+                whichPartition.map {
+                    basePath resolve
+                            it resolve
+                            erm.groupId.replace('.', '/') resolve
+                            erm.name resolve
+                            erm.version resolve
+                            "$jarPrefix-${partition.name}.jar" to archive
+                }
+            }.forEach { (partPath, u) ->
+                partPath.make()
+                u.write(partPath)
+            }
+
+            artifact.children.map {
+                it.orNull() ?: throw IllegalArgumentException("Failed to find extension child: '$it'")
+            }.forEach {
+                downloadArtifact(it)
+            }
+        }
+
+        downloadArtifact(baseArtifact)
     }
 }

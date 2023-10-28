@@ -135,6 +135,9 @@ internal fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                     .forEach(erm.extensions::add)
 
                 erm.extensionRepositories.addAll(extensionRepositories.map(MutableExtensionRepository::settings))
+                erm.extensions.addAll(listOf(
+                    yakclient.extensionConfiguration.name,
+                ).asSequence().mapDependencies().toMutableList())
 
                 erm.versionPartitions.addAll(yakclient.partitions.map {
                     MutableExtensionVersionPartition(
@@ -143,7 +146,7 @@ internal fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                         it.supportedVersions.toMutableSet(),
                         extensionRepositories.toMutableList(),
                         listOf(
-                            it.dependencyHandler.includeConfiguration.name,
+                            it.dependencies.includeConfiguration.name,
                         ).asSequence().mapDependencies().toMutableList(),
                         mutableListOf()
                     )

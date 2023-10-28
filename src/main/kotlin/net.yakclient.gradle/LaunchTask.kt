@@ -13,6 +13,7 @@ import net.yakclient.common.util.resource.SafeResource
 import net.yakclient.launchermeta.handler.copyToBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Copy
@@ -129,11 +130,11 @@ fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescri
 //            }
 //    }
 
-internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishDevExtension: TaskProvider<Copy>) =
+internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTask: Task) =
     tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
         val mcVersion: String by properties
         val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
-        exec.dependsOn(publishDevExtension.get())
+        exec.dependsOn(publishTask)
 
         val path = preDownloadClient("1.0-SNAPSHOT")
         val (desc, repo) = preCacheExtension(this, yakclient)

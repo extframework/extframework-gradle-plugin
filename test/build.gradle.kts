@@ -1,10 +1,3 @@
-import groovy.util.Node
-import groovy.util.NodeList
-import net.yakclient.gradle.ExtensionRule
-import net.yakclient.gradle.extensionInclude
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.lang.RuntimeException
-
 plugins {
     kotlin("jvm") version "1.7.10"
     kotlin("kapt") version "1.8.10"
@@ -95,18 +88,18 @@ yakclient {
             supportedVersions.addAll(listOf("1.19.2", "1.18"))
         }
 
-        create("eighteen") {
-            this.dependencies {
-                implementation(nineteen)
-                minecraft("1.18")
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
-
-                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-                "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
-            }
-
-            supportedVersions.addAll(listOf("1.18"))
-        }
+//        create("eighteen") {
+//            this.dependencies {
+//                implementation(nineteen)
+//                minecraft("1.18")
+//                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+//
+//                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+//                "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+//            }
+//
+//            supportedVersions.addAll(listOf("1.18"))
+//        }
     }
 
     extension("net.yakclient.extensions:yakgradle-ext-test-2:1.0-SNAPSHOT")

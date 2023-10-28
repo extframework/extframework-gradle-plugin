@@ -14,7 +14,7 @@ public class TweakerEntry : EnvironmentTweaker {
     override fun tweak(environment: ExtLoaderEnvironment): ExtLoaderEnvironment {
         println("Could have tweaked, but i choose not to.")
        println(TweakerTest2.something)
-        tweaked = false
+        tweaked = true
         return environment
     }
 }
