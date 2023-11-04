@@ -362,6 +362,12 @@ fun PartitionDependencyHandler.extensionInclude(dependencyNotation: Any) {
     add(includeConfiguration.name, dependencyNotation, null)
 }
 
+fun DependencyHandler.extensionInclude(dependencyNotation: Any) {
+    assert(this !is PartitionDependencyHandler) { "Dependency handler cannot be ParittionDependencyHandler" }
+    add(MAIN_INCLUDE_CONFIGURATION_NAME, dependencyNotation)
+    add("implementation", dependencyNotation)
+}
+
 
 class MinecraftEnabledPartitionDependencyHandler(
     delegate: DependencyHandler, sourceSet: SourceSet, name: String,

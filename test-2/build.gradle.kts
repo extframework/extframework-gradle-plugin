@@ -1,5 +1,7 @@
 import groovy.util.Node
 import groovy.util.NodeList
+import net.yakclient.gradle.extensionInclude
+
 //import net.yakclient.gradle.extensionInclude
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -28,6 +30,7 @@ repositories {
 
 dependencies {
     implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+    extensionInclude("org.slf4j:log4j-over-slf4j:2.0.9")
 }
 
 tasks.jar {
@@ -43,15 +46,11 @@ yakclient {
 
     mappingType = "mojang/deobfuscated"
 
-    publications {
-        groupId = "net.yakclient.extensions"
-        artifactId = "yakgradle-ext-test-2-${name}"
-    }
-
     tweakerPartition {
         entrypoint.set("net.yakclient.extensions.test2.TweakerTest2")
 
         this.dependencies {
+            extensionInclude("org.slf4j:log4j-over-slf4j:2.0.9")
             implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
             implementation("net.yakclient:boot:1.0-SNAPSHOT")
             implementation("net.yakclient:archives:1.1-SNAPSHOT")
