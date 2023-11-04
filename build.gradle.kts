@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.yakclient"
-version = "1.0.1"
+version = "1.0.2"
 
 dependencies {
     implementation("io.arrow-kt:arrow-core:1.1.2")
