@@ -9,7 +9,7 @@ data class MutableExtensionRuntimeModel(
     var packagingType: String = "jar", // Jar, War, Zip, etc...
 
     var extensionClass: String = "",
-    var mainPartition: MutableMainVersionPartition = MutableMainVersionPartition(
+    val mainPartition: MutableMainVersionPartition = MutableMainVersionPartition(
         "main",
         "",
         mutableListOf(),

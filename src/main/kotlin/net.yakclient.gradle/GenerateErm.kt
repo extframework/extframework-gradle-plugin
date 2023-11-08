@@ -152,15 +152,14 @@ internal fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                     )
                 })
 
-                erm.mainPartition = MutableMainVersionPartition(
-                    "main", "",
-                    extensionRepositories.toMutableList(),
-                    listOf(
-                        MAIN_INCLUDE_CONFIGURATION_NAME,
-                    ).asSequence().mapDependencies().toMutableList()
-                )
+                erm.mainPartition.path = ""
+                erm.mainPartition.repositories.addAll(extensionRepositories.toMutableList())
+                erm.mainPartition.dependencies.addAll( listOf(
+                    MAIN_INCLUDE_CONFIGURATION_NAME,
+                ).asSequence().mapDependencies().toMutableList())
 
-                if (yakclient.tweakerPartition.isPresent)
+                if (yakclient.tweakerPartition.isPresent) {
+                    if (erm.tweakerPartition == null)
                     erm.tweakerPartition = MutableExtensionTweakerPartition(
                         "META-INF/versioning/partitions/tweaker",
                         extensionRepositories.toMutableList(),
@@ -169,7 +168,15 @@ internal fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                         ).asSequence().mapDependencies().toMutableList(),
                         yakclient.tweakerPartition.get().entrypoint.orNull
                             ?: throw IllegalArgumentException("You must set the tweaker entrypoint.")
-                    )
+                    ) else {
+                        erm.tweakerPartition!!.repositories.addAll( extensionRepositories.toMutableList())
+                        erm.tweakerPartition!!.dependencies.addAll(listOf(
+                            TWEAKER_INCLUDE_CONFIGURATION_NAME,
+                        ).asSequence().mapDependencies().toMutableList())
+                        erm.tweakerPartition!!.entrypoint = yakclient.tweakerPartition.get().entrypoint.orNull
+                            ?: throw IllegalArgumentException("You must set the tweaker entrypoint.")
+                    }
+                }
             }
         }
     }
