@@ -71,10 +71,10 @@ data class ExtLoaderArgs(
 )
 
 fun preDownloadClient(version: String): Path {
-    return Path.of(System.getProperty("user.home")) resolve ".yakclient" resolve "client-$version.jar"
+    return YAKCLIENT_DIR resolve "client-$version.jar"
 }
 
-fun downloadClient(version: String, project: Project, devMode: Boolean = false) {
+fun downloadClient(version: String, devMode: Boolean = false) {
     val outputPath = preDownloadClient(version)
 
     if (Files.exists(outputPath)) return
@@ -86,7 +86,7 @@ fun downloadClient(version: String, project: Project, devMode: Boolean = false) 
     val resourceOr = layout.resourceOf(
         "net.yakclient",
         "client",
-        "1.0-SNAPSHOT",
+        version,
         "all",
         "jar"
     )
@@ -134,22 +134,22 @@ internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTa
     tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
         val mcVersion: String by properties
         val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
+        val environmentType = (findProperty("forceEnv") as? String) ?: "extension-dev"
         exec.dependsOn(publishTask)
 
-        val path = preDownloadClient("1.0-SNAPSHOT")
+        val path = preDownloadClient(CLIENT_VERSION)
         val (desc, repo) = preCacheExtension(this, yakclient)
 
         exec.classpath(path)
-        exec.mainClass.set("net.yakclient.client.MainKt")
+        exec.mainClass.set(CLIENT_MAIN_CLASS)
 
-        val launchPath = Path.of(System.getProperty("user.home")) resolve ".yakclient"
         val args = mutableListOf<String>()
         if (devMode) {
             args.add("--devmode")
         }
         exec.args = args
 
-        val wd = (launchPath resolve "wd").toAbsolutePath().toFile()
+        val wd = (YAKCLIENT_DIR resolve "wd").toAbsolutePath().toFile()
         wd.mkdirs()
         exec.workingDir = wd
 
@@ -160,7 +160,7 @@ internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTa
                             mcVersion,
                             listOf("--accessToken", ""),
                             ExtLoaderEnvironment(
-                                "extension-dev",
+                                environmentType,
                                 ExtLoaderDevEnvironment(
                                     ExtArg(desc, repo),
                                     yakclient.erm.get().mappingType
@@ -171,6 +171,6 @@ internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTa
         )
 
         exec.doFirst {
-            downloadClient("1.0-SNAPSHOT", project, devMode)
+            downloadClient(CLIENT_VERSION, devMode)
         }
     }

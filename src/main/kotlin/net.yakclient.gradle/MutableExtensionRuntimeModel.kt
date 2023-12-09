@@ -20,7 +20,12 @@ data class MutableExtensionRuntimeModel(
     val extensions: MutableList<Map<String, String>> = ArrayList(),
 
     val versionPartitions: MutableList<MutableExtensionVersionPartition> = ArrayList(),
-    var tweakerPartition: MutableExtensionTweakerPartition? = null,
+    var tweakerPartition: MutableExtensionTweakerPartition? = MutableExtensionTweakerPartition(
+        "META-INF/versioning/partitions/tweaker",
+        mutableListOf(),
+        mutableListOf(),
+        ""
+    ),
 
     var mappingType: String
 )
