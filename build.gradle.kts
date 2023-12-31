@@ -1,12 +1,16 @@
 plugins {
     `java-gradle-plugin`
-    kotlin("jvm") version "1.7.10"
+    kotlin("jvm") version "1.9.21"
 
-    id("com.gradle.plugin-publish") version "1.0.0"
+    id("com.gradle.plugin-publish") version "1.2.1"
 }
 
 group = "net.yakclient"
-version = "1.0.2"
+version = "1.0.3"
+
+tasks.wrapper {
+    gradleVersion = "8.6-rc-1"
+}
 
 dependencies {
     implementation("io.arrow-kt:arrow-core:1.1.2")
@@ -16,10 +20,13 @@ dependencies {
     implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.0-SNAPSHOT") {
         isChanging = true
     }
-    implementation("net.yakclient:archive-mapper-transform:1.1-SNAPSHOT") {
+    implementation("net.yakclient:archive-mapper-transform:1.2-SNAPSHOT") {
         isChanging = true
     }
-    implementation("net.yakclient:archive-mapper:1.1-SNAPSHOT") {
+    implementation("net.yakclient:archive-mapper:1.2-SNAPSHOT") {
+        isChanging = true
+    }
+    implementation("net.yakclient:archive-mapper-proguard:1.2-SNAPSHOT") {
         isChanging = true
     }
     implementation("net.yakclient:launchermeta-handler:1.0-SNAPSHOT")
@@ -38,17 +45,14 @@ dependencies {
         isChanging = true
     }
 
-    implementation("net.yakclient:boot:1.0-SNAPSHOT") {
+    implementation("net.yakclient:boot:1.1-SNAPSHOT") {
         isChanging = true
     }
 }
-
-pluginBundle {
+gradlePlugin {
     website = "https://github.com/yakclient"
     vcsUrl = "https://github.com/yakclient/yakclient-gradle"
-    tags = listOf("")
-}
-gradlePlugin {
+
     plugins {
         create("yak") {
             id = "net.yakclient"
@@ -81,8 +85,6 @@ publishing {
     }
 }
 
-
-
 allprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "maven-publish")
@@ -93,11 +95,12 @@ allprojects {
 
     repositories {
         mavenCentral()
+        mavenLocal()
+
         maven {
             isAllowInsecureProtocol = true
             url = uri("http://maven.yakclient.net/snapshots")
         }
-        mavenLocal()
     }
 
     dependencies {

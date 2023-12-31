@@ -44,7 +44,7 @@ abstract class GenerateMcSources : DefaultTask() {
             minecraftVersion.orNull
                 ?: throw IllegalArgumentException("Minecraft version for minecraft source generation not set! This task name was: '${this.name}'."),
             basePath,
-            yakclient.mappingProviders.get(mappingProvider.get()) ?: throw java.lang.IllegalArgumentException("Unknown mapping provider: '${mappingProvider.get()}'"),
+            yakclient.mappingProviders.findByName(mappingProvider.get()) ?: throw java.lang.IllegalArgumentException("Unknown mapping provider: '${mappingProvider.get()}'"),
             mappingProvider.get()
         )
     }

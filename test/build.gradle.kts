@@ -1,16 +1,22 @@
+import net.yakclient.gradle.MojangMappingProvider
 import net.yakclient.gradle.MutableExtensionRepository
 
 plugins {
     kotlin("jvm") version "1.7.10"
     kotlin("kapt") version "1.8.10"
     id("maven-publish")
-    id("net.yakclient") version "1.0.2"
+    id("net.yakclient") version "1.0.3"
 }
 
 group = "net.yakclient"
 version = "1.0-SNAPSHOT"
 
+tasks.wrapper {
+    gradleVersion = "8.6-rc-1"
+}
+
 tasks.launch {
+    targetNamespace.set("mojang:deobfuscated")
     jvmArgs = listOf("-XstartOnFirstThread")
 }
 
@@ -22,22 +28,6 @@ repositories {
         url = uri("http://maven.yakclient.net/snapshots")
     }
 }
-//
-//@CacheableRule
-//abstract class TargetJvmVersionRule @Inject constructor(val jvmVersion: Int) : ComponentMetadataRule {
-//    @get:Inject abstract val objects: ObjectFactory
-//
-//    override fun execute(context: ComponentMetadataContext) {
-//        println("Hey test this please??!")
-//        throw RuntimeException("Please")
-//        context.details.withVariant("compile") {
-//            attributes {
-//                attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, jvmVersion)
-//                attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
-//            }
-//        }
-//    }
-//}
 
 dependencies {
     implementation("net.yakclient:client-api:1.0-SNAPSHOT")
@@ -50,20 +40,23 @@ tasks.jar {
 
 yakclient {
     model {
-        name = "yakgradle-ext-test"
-        groupId = "net.yakclient.extensions"
-        extensionClass = "net.yakclient.test.MyExtension"
+        name.set("yakgradle-ext-test")
+        groupId.set("net.yakclient.extensions")
+        version.set("1.0-SNAPSHOT")
+        extensionClass.set("net.yakclient.test.MyExtension")
 
-        mainPartition.path = "asdfasdf"
-        mainPartition.repositories.add(
-            MutableExtensionRepository(
-                "fabric",
-                mutableMapOf()
-            )
-        )
+        mainPartition.update {
+            it.map { partition ->
+                partition.repositories.add(
+                    MutableExtensionRepository(
+                        "fabric",
+                        mutableMapOf()
+                    )
+                )
+                partition
+            }
+        }
     }
-
-    mappingType = "mojang/deobfuscated"
 
     tweakerPartition {
         entrypoint.set("net.yakclient.extensions.example.tweaker.TweakerEntry")
@@ -79,15 +72,17 @@ yakclient {
     }
 
     partitions {
-        val nineteen = create("nineteen_two") {
+        val nineteen_two by creating {
             this.dependencies {
                 implementation(main)
                 minecraft("1.19.2")
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
 
                 implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-                "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
+//                "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
             }
+
+            mappingsType.set("mojang")
 
             supportedVersions.addAll(listOf("1.19.2", "1.18"))
         }
@@ -111,7 +106,6 @@ yakclient {
 
 publishing {
     publications {
-
         create<MavenPublication>("prod") {
             artifact(tasks.jar)
             artifact(tasks.generateErm) {

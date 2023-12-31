@@ -1,8 +1,11 @@
 package net.yakclient.gradle
 
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.fasterxml.jackson.module.kotlin.readValue
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
 import org.gradle.api.*
@@ -11,12 +14,12 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.logging.LogLevel
-import org.gradle.api.provider.MapProperty
-import org.gradle.api.provider.Provider
+import org.gradle.api.provider.*
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
+
 
 abstract class GenerateErm : DefaultTask() {
     private val yakclient
@@ -32,35 +35,63 @@ abstract class GenerateErm : DefaultTask() {
 
     @TaskAction
     fun generateErm() {
-        val mapper = ObjectMapper().registerModule(KotlinModule.Builder().build())
+        val mapper = ObjectMapper()
+            .registerModule(KotlinModule.Builder().build())
+            .registerModule(
+                SimpleModule()
+                    .addSerializer(Property::class.java, PropertySerializer())
+                    .addSerializer(SetProperty::class.java, SetPropertySerializer())
+            )
 
-        fun <K, V, T> Map<K, V>.mapValuesNotNull(transform: (Map.Entry<K, V>) -> T?): Map<K, T> {
-            return this.mapValues(transform)
-                .mapNotNull { p -> p.value?.let { p.key to it } }
-                .toMap()
-        }
+//        fun <K, V, T> Map<K, V>.mapValuesNotNull(transform: (Map.Entry<K, V>) -> T?): Map<K, T> {
+//            return this.mapValues(transform)
+//                .mapNotNull { p -> p.value?.let { p.key to it } }
+//                .toMap()
+//        }
 
-        val allMixins =
-            preprocessorOutput.get().mapValuesNotNull { (_, files) ->
-                val file = files.asFileTree.find { it.name.contains("mixin-annotations.json") }
+//        val allMixins =
+//            preprocessorOutput.get().mapValuesNotNull { (_, files) ->
+//                val file = files.asFileTree.find { it.name.contains("mixin-annotations.json") }
+//
+//                file?.readBytes()?.let {
+//                    mapper.readValue<List<MutableExtensionMixin>>(it)
+//                }
+//            }
 
-                file?.readBytes()?.let {
-                    mapper.readValue<List<MutableExtensionMixin>>(it)
-                }
-            }
-
-        yakclient.model { erm ->
-            erm.versionPartitions.forEach {
-                val mixins = allMixins[it.name] ?: return@forEach
-                it.mixins.addAll(mixins)
-            }
-        }
+//        yakclient.model { erm ->
+//            erm.versionPartitions.forEach {
+//                val mixins = allMixins[it.name] ?: return@forEach
+//                it.mixins.addAll(mixins)
+//            }
+//        }
 
         val ermAsBytes =
-            ObjectMapper().registerModule(KotlinModule.Builder().build()).writeValueAsBytes(yakclient.erm.get())
+            mapper.writeValueAsBytes(yakclient.erm.get())
 
         ermPath.get().toPath().make()
         ermPath.get().writeBytes(ermAsBytes)
+    }
+}
+
+
+private class SetPropertySerializer : JsonSerializer<SetProperty<*>>() {
+    override fun serialize(value: SetProperty<*>, gen: JsonGenerator, serializers: SerializerProvider) {
+        if (value.isPresent) {
+            gen.writeObject(value.get())
+        } else {
+            gen.writeStartArray()
+            gen.writeEndArray()
+        }
+    }
+}
+
+private class PropertySerializer : JsonSerializer<Property<*>>() {
+    override fun serialize(value: Property<*>, gen: JsonGenerator, serializers: SerializerProvider) {
+        if (value.isPresent) {
+            gen.writeObject(value.get())
+        } else {
+            gen.writeNull()
+        }
     }
 }
 
@@ -135,47 +166,63 @@ internal fun Project.registerGenerateErmTask(yakclient: YakClientExtension) =
                     .forEach(erm.extensions::add)
 
                 erm.extensionRepositories.addAll(extensionRepositories.map(MutableExtensionRepository::settings))
-                erm.extensions.addAll(listOf(
-                    yakclient.extensionConfiguration.name,
-                ).asSequence().mapDependencies().toMutableList())
+                erm.extensions.addAll(
+                    listOf(
+                        yakclient.extensionConfiguration.name,
+                    ).asSequence().mapDependencies().toMutableList()
+                )
 
-                erm.versionPartitions.addAll(yakclient.partitions.map {
+                erm.versionPartitions.addAll(yakclient.partitions.map { versionPartition ->
                     MutableExtensionVersionPartition(
-                        it.name,
-                        "META-INF/versioning/partitions/${it.name}",
-                        it.supportedVersions.toMutableSet(),
-                        extensionRepositories.toMutableList(),
-                        listOf(
-                            it.dependencies.includeConfiguration.name,
-                        ).asSequence().mapDependencies().toMutableList(),
-                        mutableListOf()
+                        project.property {
+                            versionPartition.name
+                        },
+                        project.property {
+                            "META-INF/versioning/partitions/${versionPartition.name}"
+                        },
+                        project.objects.property(String::class.java).convention(versionPartition.mappingsType.map {
+                            yakclient.mappingProviders.getByName(it).deobfuscatedNamespace
+                        }),
+                        versionPartition.supportedVersions,
+                        project.newSetProperty {
+                            extensionRepositories.toMutableSet()
+                        },
+                        project.newSetProperty {
+                            listOf(
+                                versionPartition.dependencies.includeConfiguration.name,
+                            ).asSequence().mapDependencies().toMutableSet()
+                        }
                     )
                 })
 
-                erm.mainPartition.path = ""
-                erm.mainPartition.repositories.addAll(extensionRepositories.toMutableList())
-                erm.mainPartition.dependencies.addAll( listOf(
-                    MAIN_INCLUDE_CONFIGURATION_NAME,
-                ).asSequence().mapDependencies().toMutableList())
+                erm.mainPartition.update { provider ->
+                    provider.map {
+                        it.path.set("")
+                        it.repositories.addAll(extensionRepositories)
+                        it.dependencies.addAll(
+                            listOf(
+                                MAIN_INCLUDE_CONFIGURATION_NAME,
+                            ).asSequence().mapDependencies().toMutableList()
+                        )
+
+                        it
+                    }
+                }
 
                 if (yakclient.tweakerPartition.isPresent) {
-                    if (erm.tweakerPartition == null)
-                    erm.tweakerPartition = MutableExtensionTweakerPartition(
-                        "META-INF/versioning/partitions/tweaker",
-                        extensionRepositories.toMutableList(),
-                        listOf(
-                            TWEAKER_INCLUDE_CONFIGURATION_NAME,
-                        ).asSequence().mapDependencies().toMutableList(),
-                        yakclient.tweakerPartition.get().entrypoint.orNull
-                            ?: throw IllegalArgumentException("You must set the tweaker entrypoint.")
-                    ) else {
-                        erm.tweakerPartition!!.repositories.addAll( extensionRepositories.toMutableList())
-                        erm.tweakerPartition!!.dependencies.addAll(listOf(
-                            TWEAKER_INCLUDE_CONFIGURATION_NAME,
-                        ).asSequence().mapDependencies().toMutableList())
-                        erm.tweakerPartition!!.entrypoint = yakclient.tweakerPartition.get().entrypoint.orNull
-                            ?: throw IllegalArgumentException("You must set the tweaker entrypoint.")
-                    }
+                    erm.tweakerPartition.convention(
+                        MutableExtensionTweakerPartition(
+                            project.property { "tweaker" },
+                            project.property { "META-INF/versioning/partitions/tweaker" },
+                            project.newSetProperty { extensionRepositories.toMutableSet() },
+                            project.newSetProperty {
+                                listOf(
+                                    TWEAKER_INCLUDE_CONFIGURATION_NAME,
+                                ).asSequence().mapDependencies().toMutableSet()
+                            },
+                            yakclient.tweakerPartition.get().entrypoint
+                        )
+                    )
                 }
             }
         }

@@ -4,25 +4,17 @@ import com.durganmcbroom.artifact.resolver.open
 import com.durganmcbroom.artifact.resolver.simple.maven.HashType
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
-import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.ObjectMapper
 import net.yakclient.common.util.resolve
 import net.yakclient.common.util.resource.SafeResource
 import net.yakclient.launchermeta.handler.copyToBlocking
-import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.JavaExec
 import java.io.ByteArrayInputStream
-import java.io.File
 import java.io.InputStream
 import java.lang.IllegalStateException
 import java.net.URI
@@ -105,7 +97,7 @@ fun downloadClient(version: String, devMode: Boolean = false) {
 fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescriptorArg, ExtRepoArg> {
     val repositoryDir = project.mavenLocal()
     val erm = yak.erm.get()
-    val descriptor = ExtDescriptorArg(erm.groupId, erm.name, erm.version)
+    val descriptor = ExtDescriptorArg(erm.groupId.get(), erm.name.get(), erm.version.get())
 
     return descriptor to ExtRepoArg(repositoryDir.toString(), "local")
 }
@@ -130,11 +122,22 @@ fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescri
 //            }
 //    }
 
+abstract class LaunchMinecraft : JavaExec() {
+    @Input
+    val mcVersion: Property<String> = project.objects.property(String::class.java).convention(
+        project.provider {
+            project.findProperty("mcVersion") as String
+        })
+    @get:Input
+    abstract val targetNamespace: Property<String>
+}
+
 internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTask: Task) =
-    tasks.register("launch", org.gradle.api.tasks.JavaExec::class.java) { exec ->
-        val mcVersion: String by properties
+    tasks.register("launch", LaunchMinecraft::class.java) { exec ->
         val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
         val environmentType = (findProperty("forceEnv") as? String) ?: "extension-dev"
+        // If a mapping type is specified, use that. Otherwise, take the first matching one from a enabled partition
+
         exec.dependsOn(publishTask)
 
         val path = preDownloadClient(CLIENT_VERSION)
@@ -153,24 +156,23 @@ internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTa
         wd.mkdirs()
         exec.workingDir = wd
 
-        exec.setStandardInput(
-            ObjectMapper().registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
-                .writeValueAsBytes(
+        exec.doFirst {
+            exec.setStandardInput(
+                ObjectMapper().registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
+                    .writeValueAsBytes(
                         ExtLoaderArgs(
-                            mcVersion,
+                            exec.mcVersion.get(),
                             listOf("--accessToken", ""),
                             ExtLoaderEnvironment(
                                 environmentType,
                                 ExtLoaderDevEnvironment(
                                     ExtArg(desc, repo),
-                                    yakclient.erm.get().mappingType
+                                    exec.targetNamespace.get()
                                 )
                             )
-                    )
-                ).let(::ByteArrayInputStream)
-        )
-
-        exec.doFirst {
+                        )
+                    ).let(::ByteArrayInputStream)
+            )
             downloadClient(CLIENT_VERSION, devMode)
         }
     }

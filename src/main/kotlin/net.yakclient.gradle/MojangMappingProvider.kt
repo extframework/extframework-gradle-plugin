@@ -2,7 +2,7 @@ package net.yakclient.gradle
 
 import kotlinx.coroutines.runBlocking
 import net.yakclient.archive.mapper.ArchiveMapping
-import net.yakclient.archive.mapper.parsers.ProGuardMappingParser
+import net.yakclient.archive.mapper.parsers.proguard.ProGuardMappingParser
 import net.yakclient.boot.store.DataAccess
 import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.resolve
@@ -18,17 +18,16 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 
 class MojangMappingProvider(
-//    private val mappingStore: DataStore<String, SafeResource>
 ) : MappingsProvider {
     companion object {
-        const val REAL_TYPE: String =  "mojang/deobfuscated"
-        const val FAKE_TYPE: String =  "mojang/obfuscated"
+        const val DEOBF_NS: String =  "mojang:deobfuscated"
+        const val OBF_NS: String =  "mojang:obfuscated"
+
     }
 
 //    constructor(path: Path) : this(CachingDataStore(MojangMappingAccess(path)))
 
-    override val realType: String = REAL_TYPE
-    override val fakeType: String = FAKE_TYPE
+    override val namespaces: Set<String> = setOf(DEOBF_NS, OBF_NS)
 
     override fun forIdentifier(identifier: String): ArchiveMapping {
 //        val mappingData = mappingStore[identifier] ?: run {
@@ -40,7 +39,7 @@ class MojangMappingProvider(
 //            m
 //        }
 
-        return  ProGuardMappingParser.parse(m.open())
+        return ProGuardMappingParser(OBF_NS, DEOBF_NS).parse(m.open())
 
     }
 }

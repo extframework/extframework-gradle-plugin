@@ -8,8 +8,9 @@ import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
 import net.yakclient.archives.ArchiveReference
 import net.yakclient.archives.Archives
+import net.yakclient.boot.archive.ArchiveGraph
 import net.yakclient.boot.dependency.DependencyTypeContainer
-import net.yakclient.boot.main.initMaven
+import net.yakclient.boot.main.createMavenProvider
 import net.yakclient.boot.util.toSafeResource
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
@@ -19,9 +20,7 @@ import net.yakclient.components.extloader.api.extension.MainVersionPartition
 import net.yakclient.components.extloader.extension.artifact.ExtensionArtifactMetadata
 import net.yakclient.components.extloader.extension.artifact.ExtensionRepositoryFactory
 import net.yakclient.launchermeta.handler.copyToBlocking
-import net.yakclient.`object`.ObjectContainerImpl
 import org.gradle.api.DefaultTask
-import org.gradle.api.Project
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
@@ -29,9 +28,6 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.OutputDirectories
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
 import java.io.FileOutputStream
 import java.net.URI
@@ -39,7 +35,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
-import kotlin.io.path.writeText
 
 
 private fun newEmptyArchive() = object : ArchiveReference {
@@ -125,8 +120,10 @@ abstract class DownloadExtensions : DefaultTask() {
     fun download() {
         val dependency = project.dependencies.add("extension", notation.get())!!
 
-        val dependencyType: DependencyTypeContainer = ObjectContainerImpl()
-        initMaven(dependencyType, Files.createTempDirectory("yak-gradle-m2"))
+        val dependencyType = DependencyTypeContainer(
+            ArchiveGraph(Files.createTempDirectory("yak-gradle-m2"))
+        )
+        dependencyType.register("simple-maven", createMavenProvider())
 
         val factory = ExtensionRepositoryFactory(dependencyType)
 
@@ -210,8 +207,9 @@ abstract class DownloadExtensions : DefaultTask() {
                     is MainVersionPartition -> listOf("main")
                     is ExtensionTweakerPartition -> listOf("tweaker")
                     is ExtensionVersionPartition -> yakclient.partitions.filter {
-                        it.supportedVersions.intersect(partition.supportedVersions).isNotEmpty()
+                        it.supportedVersions.get().intersect(partition.supportedVersions).isNotEmpty()
                     }.map { it.name }
+
                     else -> throw IllegalArgumentException("Unknown partition type: '${partition::class.java.name}'")
                 }
 

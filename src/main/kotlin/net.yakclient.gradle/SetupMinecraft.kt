@@ -1,12 +1,10 @@
 package net.yakclient.gradle
 
 import net.yakclient.archive.mapper.ArchiveMapping
-import net.yakclient.archive.mapper.transform.MappingDirection
 import net.yakclient.archive.mapper.transform.transformArchive
 import net.yakclient.archives.Archives
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
-import net.yakclient.components.extloader.api.mapping.MappingsProvider
 import net.yakclient.launchermeta.handler.*
 import java.io.*
 import java.nio.file.Files
@@ -34,7 +32,7 @@ fun getMinecraftPaths(version: String, basePath: Path) : List<Path>? {
 fun setupMinecraft(
     version: String,
     basePath: Path,
-    mapper: MappingsProvider,
+    deobfuscator: MinecraftDeobfuscator,
     mapperType: String // Redundant but we need to make sure...
 ) : Pair<Path, List<Path>> {
     val (metadata, cached) = cacheMinecraft(
@@ -43,9 +41,9 @@ fun setupMinecraft(
         mapperType
     )
     val (mc, dependencies) = metadata
-    val mappings = mapper.forIdentifier(version)
+    val mappings = deobfuscator.provider.forIdentifier(version)
 
-    if (cached) remapJar(mc, mappings, dependencies)
+    if (cached) remapJar(mc, mappings, dependencies, deobfuscator.obfuscatedNamespace, deobfuscator.deobfuscatedNamespace)
 
     return mc to dependencies
 }
@@ -120,7 +118,7 @@ private fun parseDependencyMarker(path: Path) : List<Path> {
     return reader.lineSequence().map(Path::of).toList()
 }
 
-fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>) {
+fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>, fromNS: String, toNS: String) {
     val archive = Archives.find(jarPath, Archives.Finders.ZIP_FINDER)
     val libArchives = dependencies.map(Archives.Finders.ZIP_FINDER::find)
 
@@ -128,7 +126,8 @@ fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>) 
         archive,
         libArchives,
         mappings,
-        MappingDirection.TO_REAL
+        fromNS,
+        toNS,
     )
 
     val jar = Files.createTempFile(jarPath.name, ".jar")
