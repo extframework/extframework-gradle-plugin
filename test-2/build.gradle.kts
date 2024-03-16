@@ -7,8 +7,7 @@ import net.yakclient.gradle.extensionInclude
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.7.10"
-    kotlin("kapt") version "1.8.10"
+    kotlin("jvm")  version "1.9.21"
     id("maven-publish")
     id("net.yakclient") version "1.0.3"
 }
@@ -53,13 +52,12 @@ yakclient {
         entrypoint.set("net.yakclient.extensions.test2.TweakerTest2")
 
         this.dependencies {
-            extensionInclude("org.slf4j:log4j-over-slf4j:2.0.9")
             implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
-            implementation("net.yakclient:boot:1.0-SNAPSHOT")
-            implementation("net.yakclient:archives:1.1-SNAPSHOT")
-            implementation("com.durganmcbroom:jobs:1.0-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.0-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver:1.0-SNAPSHOT")
+            implementation("net.yakclient:boot:2.1-SNAPSHOT")
+            implementation("net.yakclient:archives:1.2-SNAPSHOT")
+            implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
+            implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
+            implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
         }
     }
 

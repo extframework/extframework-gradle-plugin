@@ -1,12 +1,18 @@
 package net.yakclient.gradle
 
+import com.durganmcbroom.jobs.launch
+import com.durganmcbroom.resources.openStream
 import net.yakclient.archive.mapper.ArchiveMapping
 import net.yakclient.archive.mapper.transform.transformArchive
 import net.yakclient.archives.Archives
+import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
 import net.yakclient.launchermeta.handler.*
-import java.io.*
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileOutputStream
+import java.io.FileReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -53,7 +59,7 @@ data class McMetadata(
     val dependencies: List<Path>,
 )
 
-private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String): Pair<McMetadata, Boolean> {
+private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String): Pair<McMetadata, Boolean> = launch {
     val minecraftPath = basePath resolve "net" resolve "minecraft" resolve "client" resolve version resolve mappingsType
     val minecraftJarPath = minecraftPath resolve "minecraft-${version}.jar"
 //    val mappingsPath = minecraftPath resolve "minecraft-mappings-${version}.txt"
@@ -68,15 +74,15 @@ private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String
 
         val metadata = parseMetadata(
             (versionManifest.find(version)
-                ?: throw IllegalArgumentException("Unknown minecraft version: '$version'")).metadata()
-        )
+                ?: throw IllegalArgumentException("Unknown minecraft version: '$version'")).metadata().merge()
+        ).merge()
 
         // Download minecraft jar
         if (minecraftJarPath.make()) {
 
-            val clientResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT]?.toResource()
+            val clientResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT]?.toResource()?.merge()
                 ?: throw IllegalArgumentException("Cant find client in launch metadata?")
-            clientResource copyToBlocking minecraftJarPath
+            clientResource copyTo minecraftJarPath
         }
 
 //        // Download mappings
@@ -98,7 +104,7 @@ private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String
                     File.separatorChar
                 )) resolve dArtifact resolve dVersion resolve "${dArtifact}-${dVersion}${if (dClassifier == null) "" else "-${dClassifier}"}.jar"
 
-                it.downloads.artifact.toResource() copyToBlocking toPath
+                it.downloads.artifact.toResource().merge() copyTo toPath
 
                 toPath
             }
@@ -109,7 +115,7 @@ private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String
         }
     }
 
-    return McMetadata(minecraftJarPath, parseDependencyMarker(dependenciesMarker)) to b
+    McMetadata(minecraftJarPath, parseDependencyMarker(dependenciesMarker)) to b
 }
 
 private fun parseDependencyMarker(path: Path) : List<Path> {
@@ -138,7 +144,7 @@ fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>, 
 
             target.putNextEntry(entry)
 
-            val eIn = e.resource.open()
+            val eIn = e.resource.openStream()
 
             //Stolen from https://stackoverflow.com/questions/1281229/how-to-use-jaroutputstream-to-create-a-jar-file
             val buffer = ByteArray(1024)

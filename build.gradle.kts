@@ -13,11 +13,10 @@ tasks.wrapper {
 }
 
 dependencies {
-    implementation("io.arrow-kt:arrow-core:1.1.2")
-    implementation("com.durganmcbroom:artifact-resolver:1.0-SNAPSHOT") {
+    implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT") {
         isChanging = true
     }
-    implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.0-SNAPSHOT") {
+    implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT") {
         isChanging = true
     }
     implementation("net.yakclient:archive-mapper-transform:1.2-SNAPSHOT") {
@@ -29,23 +28,22 @@ dependencies {
     implementation("net.yakclient:archive-mapper-proguard:1.2-SNAPSHOT") {
         isChanging = true
     }
-    implementation("net.yakclient:launchermeta-handler:1.0-SNAPSHOT")
+    implementation("net.yakclient:launchermeta-handler:1.1-SNAPSHOT")
 
-    implementation("net.yakclient:archives:1.1-SNAPSHOT")
+    implementation("net.yakclient:archives:1.2-SNAPSHOT")
 
-    implementation("net.yakclient:common-util:1.0-SNAPSHOT")
+    implementation("net.yakclient:common-util:1.1-SNAPSHOT")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
     implementation("net.yakclient:object-container:1.0-SNAPSHOT") {
         isChanging = true
     }
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 
     implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT") {
         isChanging = true
     }
 
-    implementation("net.yakclient:boot:1.1-SNAPSHOT") {
+    implementation("net.yakclient:boot:2.1-SNAPSHOT") {
         isChanging = true
     }
 }

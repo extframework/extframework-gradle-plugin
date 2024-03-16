@@ -2,8 +2,7 @@ import net.yakclient.gradle.MojangMappingProvider
 import net.yakclient.gradle.MutableExtensionRepository
 
 plugins {
-    kotlin("jvm") version "1.7.10"
-    kotlin("kapt") version "1.8.10"
+    kotlin("jvm") version "1.9.21"
     id("maven-publish")
     id("net.yakclient") version "1.0.3"
 }
@@ -63,11 +62,11 @@ yakclient {
 
         this.dependencies {
             implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
-            implementation("net.yakclient:boot:1.0-SNAPSHOT")
-            implementation("net.yakclient:archives:1.1-SNAPSHOT")
-            implementation("com.durganmcbroom:jobs:1.0-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.0-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver:1.0-SNAPSHOT")
+            implementation("net.yakclient:boot:2.1-SNAPSHOT")
+            implementation("net.yakclient:archives:1.2-SNAPSHOT")
+            implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
+            implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
+            implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
         }
     }
 

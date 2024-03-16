@@ -2,16 +2,18 @@ package net.yakclient.gradle
 
 import com.durganmcbroom.artifact.resolver.Artifact
 import com.durganmcbroom.artifact.resolver.ResolutionContext
-import com.durganmcbroom.artifact.resolver.simple.maven.HashType
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactRequest
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
+import com.durganmcbroom.jobs.launch
+import com.durganmcbroom.resources.ResourceAlgorithm.SHA1
+import com.durganmcbroom.resources.openStream
 import net.yakclient.archives.ArchiveReference
 import net.yakclient.archives.Archives
 import net.yakclient.boot.archive.ArchiveGraph
 import net.yakclient.boot.dependency.DependencyTypeContainer
-import net.yakclient.boot.main.createMavenProvider
-import net.yakclient.boot.util.toSafeResource
+import net.yakclient.boot.maven.MavenResolverProvider
+import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
 import net.yakclient.components.extloader.api.extension.ExtensionTweakerPartition
@@ -19,7 +21,6 @@ import net.yakclient.components.extloader.api.extension.ExtensionVersionPartitio
 import net.yakclient.components.extloader.api.extension.MainVersionPartition
 import net.yakclient.components.extloader.extension.artifact.ExtensionArtifactMetadata
 import net.yakclient.components.extloader.extension.artifact.ExtensionRepositoryFactory
-import net.yakclient.launchermeta.handler.copyToBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
@@ -79,7 +80,7 @@ private fun ArchiveReference.write(path: Path) {
 
             target.putNextEntry(entry)
 
-            val eIn = e.resource.open()
+            val eIn = e.resource.openStream()
 
             //Stolen from https://stackoverflow.com/questions/1281229/how-to-use-jaroutputstream-to-create-a-jar-file
             val buffer = ByteArray(1024)
@@ -123,7 +124,7 @@ abstract class DownloadExtensions : DefaultTask() {
         val dependencyType = DependencyTypeContainer(
             ArchiveGraph(Files.createTempDirectory("yak-gradle-m2"))
         )
-        dependencyType.register("simple-maven", createMavenProvider())
+        dependencyType.register("simple-maven", MavenResolverProvider())
 
         val factory = ExtensionRepositoryFactory(dependencyType)
 
@@ -136,38 +137,40 @@ abstract class DownloadExtensions : DefaultTask() {
             )
         )
 
-        val baseArtifact: Artifact = project.repositories.map {
-            when (it) {
-                is DefaultMavenLocalArtifactRepository -> SimpleMavenRepositorySettings.local()
-                is MavenArtifactRepository -> SimpleMavenRepositorySettings.default(
-                    it.url.toString(),
-                    preferredHash = HashType.SHA1
+        val baseArtifact = launch {
+            project.repositories.map {
+                when (it) {
+                    is DefaultMavenLocalArtifactRepository -> SimpleMavenRepositorySettings.local()
+                    is MavenArtifactRepository -> SimpleMavenRepositorySettings.default(
+                        it.url.toString(),
+                        preferredHash = SHA1
+                    )
+
+                    else -> throw IllegalArgumentException("Repository type: '${it.name}' is not currently supported.")
+                }
+            }.map(factory::createNew).map {
+                ResolutionContext(
+                    it,
+                    it.stubResolver,
+                    factory.artifactComposer
                 )
-
-                else -> throw IllegalArgumentException("Repository type: '${it.name}' is not currently supported.")
-            }
-        }.map(factory::createNew).map {
-            ResolutionContext(
-                it,
-                it.stubResolver,
-                factory.artifactComposer
-            )
-        }.firstNotNullOfOrNull {
-            it.getAndResolve(request).orNull()
-        } ?: throw IllegalArgumentException("Unable to find extension: '$notation'")
+            }.firstNotNullOfOrNull {
+                it.getAndResolve(request)().getOrNull()
+            } ?: throw IllegalArgumentException("Unable to find extension: '$notation'")
+        }
 
 
-        fun downloadArtifact(artifact: Artifact) {
+        fun downloadArtifact(artifact: Artifact<*>) {
             val erm = (artifact.metadata as ExtensionArtifactMetadata).erm
 
             val jarPrefix = "${erm.name}-${erm.version}"
 
             val resourcePath = Files.createTempFile(jarPrefix, ".jar")
 
-            val baseResource = artifact.metadata.resource?.toSafeResource() ?: return
+            val baseResource = artifact.metadata.resource ?: return
 
             resourcePath.make()
-            baseResource copyToBlocking resourcePath
+            baseResource copyTo resourcePath
 
             val archive = Archives.find(resourcePath, Archives.Finders.ZIP_FINDER)
 
@@ -227,7 +230,7 @@ abstract class DownloadExtensions : DefaultTask() {
             }
 
             artifact.children.map {
-                it.orNull() ?: throw IllegalArgumentException("Failed to find extension child: '$it'")
+                it
             }.forEach {
                 downloadArtifact(it)
             }

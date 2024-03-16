@@ -1,23 +1,19 @@
 package net.yakclient.gradle
 
-import com.durganmcbroom.artifact.resolver.open
-import com.durganmcbroom.artifact.resolver.simple.maven.HashType
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
+import com.durganmcbroom.jobs.launch
+import com.durganmcbroom.resources.ResourceAlgorithm
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
+import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.resolve
-import net.yakclient.common.util.resource.SafeResource
-import net.yakclient.launchermeta.handler.copyToBlocking
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.JavaExec
 import java.io.ByteArrayInputStream
-import java.io.InputStream
-import java.lang.IllegalStateException
-import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -73,25 +69,25 @@ fun downloadClient(version: String, devMode: Boolean = false) {
 
     val layout = if (devMode)
         SimpleMavenLocalLayout()
-    else SimpleMavenDefaultLayout("http://maven.yakclient.net/snapshots", HashType.SHA1, true, true)
-
-    val resourceOr = layout.resourceOf(
-        "net.yakclient",
-        "client",
-        version,
-        "all",
-        "jar"
+    else SimpleMavenDefaultLayout("http://maven.yakclient.net/snapshots", ResourceAlgorithm.SHA1,
+        releasesEnabled = true,
+        snapshotsEnabled = true,
+        requireResourceVerification = true
     )
 
-    val resource = resourceOr.tapLeft { throw IllegalStateException(it.message) }.orNull()!!
+    launch {
+        val resourceOr = layout.resourceOf(
+            "net.yakclient",
+            "client",
+            version,
+            "all",
+            "jar"
+        )
 
-    val safeResource = object : SafeResource {
-        override val uri: URI = URI.create(resource.location)
+        val resource = resourceOr().merge()
 
-        override fun open(): InputStream = resource.open()
+        resource copyTo outputPath
     }
-
-    safeResource copyToBlocking outputPath
 }
 
 fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescriptorArg, ExtRepoArg> {
@@ -128,6 +124,7 @@ abstract class LaunchMinecraft : JavaExec() {
         project.provider {
             project.findProperty("mcVersion") as String
         })
+
     @get:Input
     abstract val targetNamespace: Property<String>
 }
