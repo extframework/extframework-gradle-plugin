@@ -2,19 +2,22 @@ package net.yakclient.gradle
 
 import groovy.lang.Closure
 import net.yakclient.common.util.resolve
-import net.yakclient.components.extloader.api.mapping.MappingsProvider
+import net.yakclient.components.extloader.extension.partition.MainPartitionLoader
+import net.yakclient.components.extloader.extension.partition.TweakerPartitionLoader
+import net.yakclient.components.extloader.extension.partition.VersionedPartitionLoader
 import org.gradle.api.*
 import org.gradle.api.artifacts.*
 import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.plugins.JvmEcosystemPlugin
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
-import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.configurationcache.extensions.capitalized
 import org.gradle.jvm.tasks.Jar
+import org.gradle.util.internal.GUtil
 import java.nio.file.Path
+import java.util.*
+import kotlin.collections.ArrayList
 
 internal const val CLIENT_VERSION = "1.1-SNAPSHOT"
 internal const val CLIENT_MAIN_CLASS = "net.yakclient.client.MainKt"
@@ -22,74 +25,132 @@ internal val YAKCLIENT_DIR = Path.of(System.getProperty("user.home")) resolve ".
 
 class YakClientGradle : Plugin<Project> {
     override fun apply(project: Project) {
+        MinecraftMappings.setup(project.layout.projectDirectory.file("mappings").asFile.toPath())
 
         project.plugins.apply(JvmEcosystemPlugin::class.java)
         val yakclient = project.extensions.create("yakclient", YakClientExtension::class.java, project)
 
         val generateErm = project.registerGenerateErmTask(yakclient)
 
-        val jar = project.tasks.named("jar", Jar::class.java) { jar ->
+        project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)
             jar.from(generateErm)
             jar.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
 
             yakclient.partitions.configureEach { partition ->
                 jar.from(partition.sourceSet.output) { copy ->
-                    copy.into("META-INF/versioning/partitions/${partition.name}")
+                    copy.into(partition.partition.path)
                 }
-            }
-
-            if (yakclient.tweakerPartition.isPresent) jar.from(yakclient.tweakerPartition.get().sourceSet.output) { copy ->
-                copy.into("META-INF/versioning/partitions/tweaker")
             }
         }
 
-//        val publishDevExtension = project.tasks.register("publishDevExtension", Copy::class.java) { copy ->
-//            val basePath = yakclient.erm.map {
-//                Path.of(
-//                    it.groupId.replace('.', '/')
-//                ).resolve(
-//                    it.name
-//                ).resolve(
-//                    it.version
-//                ).toString()
-//            }
-//            val ermOut = generateErm.get().outputs
-//            ermOut.upToDateWhen { false }
-//            copy.from(ermOut) { spec ->
-//                spec.into(basePath)
-//            }
-//            val jarOut = jar.get().outputs
-//            jarOut.upToDateWhen { false }
-//            copy.from(jarOut) { spec ->
-//                spec.into(basePath)
-//            }
-//            copy.destinationDir = project.mavenLocal().toFile()
-//        }
 
         project.registerLaunchTask(yakclient, project.tasks.getByName("publishToMavenLocal"))
     }
 }
 
-const val MAIN_INCLUDE_CONFIGURATION_NAME = "include"
-const val TWEAKER_INCLUDE_CONFIGURATION_NAME = "tweakerInclude"
-const val MAIN_EXTENSION_CONFIGURATION_NAME = "extension"
-const val TWEAKER_EXTENSION_CONFIGURATION_NAME = "tweakerExtension"
-
-
-
 abstract class YakClientExtension(
-    private val project: Project
+    internal val project: Project
 ) {
-    internal val partitions = project.container(VersionPartition::class.java) { name ->
-        check(name != "main" && name != "tweaker") { "Illegal partition name: '$name', this is a reserved partition name." }
+    internal val partitions = object : NamedDomainPartitionContainer(project.container(PartitionHandler::class.java)) {
+        override fun main(action: Action<MainPartitionHandler>) {
+            val partition = MutableExtensionPartition(
+                MainPartitionLoader.TYPE,
+                project.property { "main" },
+                project.property { "META-INF/partitions/main" },
+                project.newSetProperty(),
+                project.newSetProperty(),
+                project.newMapProperty()
+            )
 
-        val sourceSet = sourceSets.findByName(name) ?: sourceSets.create(name)
-        project.configurations.create("${name}Extension")
+            model {
+                it.partitions.add(partition)
+            }
 
-        VersionPartition(project, name, sourceSet, project.objects.property(String::class.java), this)
+            val toConfigure = ArrayList<() -> Unit>()
+            val handler = MainPartitionHandler(
+                project,
+                partition,
+                sourceSets.getByName("main"),
+                toConfigure::add
+            )
+
+            add(handler)
+
+            action.execute(handler)
+            toConfigure.forEach { it() }
+        }
+
+        override fun tweaker(action: Action<TweakerPartitionHandler>) {
+            val partition = MutableExtensionPartition(
+                TweakerPartitionLoader.TYPE,
+                project.property { "tweaker" },
+                project.property { "META-INF/partitions/tweaker" },
+                project.newSetProperty(),
+                project.newSetProperty(),
+                project.newMapProperty()
+            )
+
+            model {
+                it.partitions.add(partition)
+            }
+
+            val sourceSet = sourceSets.create("tweaker")
+            project.dependencies.add("implementation", sourceSet.output)
+
+            val toConfigure = ArrayList<() -> Unit>()
+            val handler = TweakerPartitionHandler(
+                project,
+                partition,
+                sourceSet,
+                toConfigure::add
+            )
+
+            add(handler)
+
+            action.execute(handler)
+            toConfigure.forEach { it() }
+        }
+
+        override fun version(name: String, action: Action<MinecraftTargetingPartitionHandler>) {
+            val partition = MutableExtensionPartition(
+                VersionedPartitionLoader.TYPE,
+                project.property { name },
+                project.property { "META-INF/partitions/$name" },
+                project.newSetProperty(),
+                project.newSetProperty(),
+                project.newMapProperty()
+            )
+
+            model {
+                it.partitions.add(partition)
+            }
+
+            val sourceSet = sourceSets.create(name)
+            project.dependencies.add(sourceSet.implementationConfigurationName, sourceSets.getByName("main").output)
+            project.dependencies.add(sourceSet.implementationConfigurationName, downloadExtensions.map {
+                it.output
+            })
+            val toConfigure = ArrayList<() -> Unit>()
+            val handler = MinecraftTargetingPartitionHandler(
+                project,
+                partition,
+                sourceSet,
+                this@YakClientExtension,
+                toConfigure::add
+            )
+
+            add(handler)
+
+            action.execute(handler)
+            toConfigure.forEach { it() }
+        }
     }
     internal val sourceSets: SourceSetContainer = project.extensions.getByType(SourceSetContainer::class.java)
+    private val downloadExtensions = project.tasks.register("downloadExtensions", DownloadExtensions::class.java) {
+        it.configuration.set(extensionConfiguration.name)
+    }
+
     val erm: Property<MutableExtensionRuntimeModel> = project.property {
         MutableExtensionRuntimeModel(
             project.property {
@@ -104,86 +165,39 @@ abstract class YakClientExtension(
             project.property {
                 "jar"
             },
-            project.objects.property(String::class.java),
-            project.property {
-                MutableMainVersionPartition(
-                    project.property {
-                        "main"
-                    },
-                    project.property {
-                        ""
-                    },
-                    project.newSetProperty(),
-                    project.newSetProperty(),
-                )
-            },
             project.newSetProperty(),
             project.newSetProperty(),
             project.newSetProperty(),
-            project.property()
         )
     }
-    val extensionConfiguration: Configuration = project.configurations.create("extension")
+    private val extensionConfiguration: Configuration = project.configurations.create("extension") {
+        it.isCanBeResolved = false
+    }
     val mappingProviders = project.container(MinecraftDeobfuscator::class.java)
-    val tweakerPartition: Property<TweakerPartition> = project.property()
 
     init {
-        mappingProviders.add(object: MinecraftDeobfuscator {
-            override val provider: MappingsProvider = MojangMappingProvider()
-            override val obfuscatedNamespace: String = MojangMappingProvider.OBF_NS
-            override val deobfuscatedNamespace: String = MojangMappingProvider.DEOBF_NS
-            override fun getName(): String {
-                return "mojang"
+        mappingProviders.add(
+            MinecraftMappings.mojang
+        )
+
+        project.dependencies.add("implementation", downloadExtensions.map {
+            it.output
+        })
+    }
+
+    fun partitions(action: Action<NamedDomainPartitionContainer>) {
+        action.execute(partitions)
+    }
+
+    fun extensions(action: Action<ExtensionDependencyHandler>) {
+        action.execute(object : ExtensionDependencyHandler {
+            override fun require(notation: String) {
+                val dep = project.dependencies.add(extensionConfiguration.name, notation) ?: return
+                model {
+                    it.extensions.add( ermDependency(dep))
+                }
             }
         })
-
-        project.configurations.create(MAIN_INCLUDE_CONFIGURATION_NAME)
-    }
-
-    fun partitions(configure: Action<NamedDomainObjectContainer<VersionPartition>>) {
-        configure.execute(partitions)
-    }
-
-    fun tweakerPartition(configure: Action<TweakerPartition>) {
-        if (!tweakerPartition.isPresent) tweakerPartition.set(
-            TweakerPartition(
-                project,
-                sourceSets.create("tweaker"),
-                this
-            )
-        )
-
-        configure.execute(tweakerPartition.get())
-    }
-
-    fun extension(notation: String) {
-        val task =
-            project.tasks.register("downloadExtension${notation.split(":")[1]}", DownloadExtensions::class.java) {
-                it.notation.set(notation)
-            }
-
-        project.dependencies.add(
-            "implementation",
-            task.map {
-                it.output.get()["main"]!!.asFileTree
-            }
-        )
-
-        tweakerPartition.ifPresent { p ->
-            p.dependencies.add(
-                "implementation",
-                task.map {
-                    it.output.get()["tweaker"]!!.asFileTree
-                }
-            )
-        }
-
-        partitions.configureEach { p ->
-            p.dependencies.add(
-                "implementation",
-                task.map { it.output.get()[p.name]!!.asFileTree }
-            )
-        }
     }
 
     fun model(action: Action<MutableExtensionRuntimeModel>) {
@@ -202,7 +216,7 @@ abstract class YakClientExtension(
                 || dependency.version?.isNotBlank() != true
             ) return null
 
-            return mapOf( // Always a good idea to fill out default values even if they are provided, just in case libraries updates etc.
+            return mapOf( // Always a good idea to fill out default values even if they are provided just in case libraries update.
                 "descriptor" to ("${dependency.group}:${dependency.name}:${dependency.version}"),
                 "isTransitive" to "true",
                 "includeScopes" to "compile,runtime,import",
@@ -212,64 +226,131 @@ abstract class YakClientExtension(
     }
 }
 
-data class TweakerPartition(
-    private val project: Project,
-    val sourceSet: SourceSet,
-    private val yakclientExtension: YakClientExtension
-) {
-    val entrypoint: Property<String> = project.objects.property(String::class.java)
-    val dependencies = PartitionDependencyHandler(
-        project.dependencies, sourceSet, "tweaker", project.configurations.maybeCreate(
-            TWEAKER_INCLUDE_CONFIGURATION_NAME
-        ), yakclientExtension
-    )
+interface ExtensionDependencyHandler {
+    fun require(notation: String)
+}
 
-    fun dependencies(action: Action<PartitionDependencyHandler>) {
-        action.execute(dependencies)
+abstract class NamedDomainPartitionContainer(
+    delegate: NamedDomainObjectContainer<PartitionHandler<*>>
+) : NamedDomainObjectContainer<PartitionHandler<*>> by delegate {
+    abstract fun main(action: Action<MainPartitionHandler>)
+
+    abstract fun tweaker(action: Action<TweakerPartitionHandler>)
+
+    abstract fun version(name: String, action: Action<MinecraftTargetingPartitionHandler>)
+}
+
+abstract class PartitionHandler<T : PartitionDependencyHandler>(
+    project: Project,
+    val partition: MutableExtensionPartition,
+    val sourceSet: SourceSet,
+    val configure: (() -> Unit) -> Unit
+) : Named {
+    abstract val dependencies: T
+
+    open fun dependencies(action: Action<T>) {
+        configure {
+            action.execute(dependencies)
+        }
+    }
+
+    override fun getName(): String {
+        return sourceSet.name
     }
 }
 
-data class VersionPartition(
-    private val project: Project,
-    private val name: String,
-    val sourceSet: SourceSet,
-    val mappingsType: Property<String>,
-    private val yakClientExtension: YakClientExtension
-) : Named {
-    val dependencies = MinecraftEnabledPartitionDependencyHandler(
-        project.dependencies,
-        sourceSet,
-        name,
-        project,
-        mappingsType,
-        project.configurations.maybeCreate("${name}Include"),
-        yakClientExtension,
-    )
-    val supportedVersions: SetProperty<String> = project.newSetProperty()
+class MainPartitionHandler(
+    project: Project,
+    partition: MutableExtensionPartition,
+    sourceSet: SourceSet, configure: (() -> Unit) -> Unit
+) : PartitionHandler<PartitionDependencyHandler>(project, partition, sourceSet, configure) {
+    override val dependencies = PartitionDependencyHandler(
+        project.dependencies, sourceSet
+    ) {
+        YakClientExtension.ermDependency(it)
+            ?.toMutableMap()
+            ?.let(partition.dependencies::add)
+    }
 
-    fun dependencies(action: Action<MinecraftEnabledPartitionDependencyHandler>) =
-        action.execute(dependencies)
+    var extensionClass: String
+        get() {
+            return partition.options.getting("extension-class").get()
+        }
+        set(value) {
+            partition.options.put("extension-class", value)
+        }
+}
 
-    override fun getName(): String {
-        return name
+class TweakerPartitionHandler(
+    project: Project,
+    partition: MutableExtensionPartition,
+    sourceSet: SourceSet, configure: (() -> Unit) -> Unit
+) : PartitionHandler<PartitionDependencyHandler>(project, partition, sourceSet, configure) {
+    override val dependencies = PartitionDependencyHandler(
+        project.dependencies, sourceSet
+    ) {
+        YakClientExtension.ermDependency(it)
+            ?.toMutableMap()
+            ?.let(partition.dependencies::add)
+    }
+
+    var tweakerClass: String
+        get() {
+            return partition.options.getting("tweaker-class").get()
+        }
+        set(value) {
+            partition.options.put("tweaker-class", value)
+        }
+}
+
+class MinecraftTargetingPartitionHandler(
+    project: Project,
+    partition: MutableExtensionPartition,
+    sourceSet: SourceSet,
+    val yakClientExtension: YakClientExtension, configure: (() -> Unit) -> Unit,
+) : PartitionHandler<VersionPartitionDependencyHandler>(project, partition, sourceSet, configure) {
+    override val dependencies: VersionPartitionDependencyHandler by lazy {
+        VersionPartitionDependencyHandler(
+            project.dependencies,
+            sourceSet,
+            project,
+            mappings.name,
+        ) {
+            YakClientExtension.ermDependency(it)
+                ?.toMutableMap()
+                ?.let(partition.dependencies::add)
+        }
+    }
+
+    var mappings: MinecraftDeobfuscator
+        get() {
+            return yakClientExtension.mappingProviders.find {
+                it.deobfuscatedNamespace == partition.options.getting("mappingNS").orNull
+            } ?: throw Exception("Please set your mappings provider in partition: '${sourceSet.name}'")
+        }
+        set(value) {
+            partition.options.put("mappingNS", value.deobfuscatedNamespace)
+        }
+    var supportedVersions: List<String>
+        get() {
+            return partition.options.getting("versions").orNull?.split(",") ?: listOf()
+        }
+        set(value) {
+            partition.options.put("versions", value.joinToString(separator = ","))
+        }
+
+    fun supportVersions(vararg versions: String) {
+        supportedVersions += versions.toList()
     }
 }
 
 open class PartitionDependencyHandler(
     private val delegate: DependencyHandler,
-    val sourceSet: SourceSet,
-    private val name: String,
-    val includeConfiguration: Configuration,
-    yakClientExtension: YakClientExtension,
+    private val sourceSet: SourceSet,
+    private val addDependency: (Dependency) -> Unit
 ) : DependencyHandler by delegate {
-    val main by lazy { yakClientExtension.sourceSets.getByName("main").output }
-
     override fun add(configurationName: String, dependencyNotation: Any): Dependency? {
-        return add(configurationName, dependencyNotation, null)
-    }
-
-    operator fun String.invoke(notation: Any) {
-        add(this, notation)
+        return this.add(configurationName, dependencyNotation, null)
     }
 
     override fun add(
@@ -278,58 +359,39 @@ open class PartitionDependencyHandler(
         configureClosure: Closure<*>?
     ): Dependency? {
         val newNotation = when (dependencyNotation) {
-            is VersionPartition -> dependencyNotation.sourceSet.output
             else -> dependencyNotation
         }
 
-        val newConfig = when (configurationName) {
-            "implementation" -> sourceSet.implementationConfigurationName
-            else -> configurationName
-        }
+        val newConfig =
+            ((if (sourceSet.name == SourceSet.MAIN_SOURCE_SET_NAME)
+                ""
+            else GUtil.toCamelCase(sourceSet.name)) + configurationName.replaceFirstChar {
+                it.uppercase()
+            }).replaceFirstChar { it.lowercase() }
 
-        return delegate.add(newConfig, newNotation, configureClosure)
+        return delegate.add(newConfig, newNotation, configureClosure)?.also(addDependency)
     }
 }
 
-fun PartitionDependencyHandler.extensionInclude(dependencyNotation: Any) {
-    add(sourceSet.implementationConfigurationName, dependencyNotation, null)
-    add(includeConfiguration.name, dependencyNotation, null)
-}
-
-fun DependencyHandler.extensionInclude(dependencyNotation: Any) {
-    assert(this !is PartitionDependencyHandler) { "Dependency handler cannot be ParittionDependencyHandler" }
-    add(MAIN_INCLUDE_CONFIGURATION_NAME, dependencyNotation)
-    add("implementation", dependencyNotation)
-}
-
-
-class MinecraftEnabledPartitionDependencyHandler(
-    delegate: DependencyHandler, sourceSet: SourceSet, name: String,
+class VersionPartitionDependencyHandler(
+    private val delegate: DependencyHandler,
+    private val sourceSet: SourceSet,
     private val project: Project,
-    private val mappingsType: Provider<String>,
-    includeConfiguration: Configuration,
-    yakClientExtension: YakClientExtension,
+    private val mappingsType: String,
+    addDependency: (Dependency) -> Unit
 ) : PartitionDependencyHandler(
     delegate,
     sourceSet,
-    name,
-    includeConfiguration,
-    yakClientExtension,
+    addDependency
 ) {
-    var minecraftVersion: String = ""
-        private set
-
     fun minecraft(version: String) {
-        minecraftVersion = version
-
         val taskName = "generateMinecraft${version}Sources"
-        val task =
-            project.tasks.findByName(taskName) ?: project.tasks.create(taskName, GenerateMcSources::class.java) {
-                it.mappingProvider.set(mappingsType)
-                it.minecraftVersion.set(version)
-            }
+        val task = project.tasks.findByName(taskName) ?: project.tasks.create(taskName, GenerateMcSources::class.java) {
+            it.mappingProvider.set(mappingsType)
+            it.minecraftVersion.set(version)
+        }
 
-        add("implementation",
+        delegate.add(sourceSet.implementationConfigurationName,
             project.files(task.outputs.files.asFileTree).apply {
                 builtBy(task)
             }

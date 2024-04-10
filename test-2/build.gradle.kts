@@ -1,15 +1,9 @@
-import groovy.util.Node
-import groovy.util.NodeList
-import net.yakclient.gradle.MojangMappingProvider
-import net.yakclient.gradle.extensionInclude
-
-//import net.yakclient.gradle.extensionInclude
-//import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import net.yakclient.gradle.MinecraftMappings
 
 plugins {
-    kotlin("jvm")  version "1.9.21"
+    kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("net.yakclient") version "1.0.3"
+    id("net.yakclient") version "1.1"
 }
 
 group = "net.yakclient"
@@ -33,47 +27,47 @@ repositories {
 }
 
 dependencies {
-    implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-    extensionInclude("org.slf4j:log4j-over-slf4j:2.0.9")
 }
 
 tasks.jar {
-    archiveBaseName.set("yakgradle-ext-test")
+    archiveBaseName.set("yakgradle-ext-test-2")
 }
 
 yakclient {
     model {
-        name.set("yakgradle-ext-test-2")
         groupId.set("net.yakclient.extensions")
-        extensionClass.set("net.yakclient.extensions.test2.MyExtension2")
-    }
-
-    tweakerPartition {
-        entrypoint.set("net.yakclient.extensions.test2.TweakerTest2")
-
-        this.dependencies {
-            implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
-            implementation("net.yakclient:boot:2.1-SNAPSHOT")
-            implementation("net.yakclient:archives:1.2-SNAPSHOT")
-            implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
-        }
+        name.set("yakgradle-ext-test-2")
+        version.set("1.0-SNAPSHOT")
     }
 
     partitions {
-        val latest by creating {
-            mappingsType.set("mojang")
+        version("latest") {
+            supportVersions("1.20.1")
+            mappings = MinecraftMappings.mojang
 
-            this.dependencies {
-                implementation(main)
+            dependencies {
                 minecraft("1.20.1")
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
+            }
+        }
 
+        main {
+            extensionClass = "net.yakclient.extensions.test2.MyExtension2"
+            dependencies {
                 implementation("net.yakclient:client-api:1.0-SNAPSHOT")
             }
+        }
 
-            supportedVersions.addAll(listOf("1.19.2", "1.20.1"))
+        tweaker {
+            tweakerClass = "net.yakclient.extensions.test2.TweakerTest2"
+            dependencies {
+                implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
+                implementation("net.yakclient:boot:2.1-SNAPSHOT")
+
+                implementation("net.yakclient:archives:1.2-SNAPSHOT")
+                implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
+                implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
+                implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
+            }
         }
     }
 }

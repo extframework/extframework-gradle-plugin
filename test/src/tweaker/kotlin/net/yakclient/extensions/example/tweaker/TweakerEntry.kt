@@ -1,8 +1,9 @@
 package net.yakclient.extensions.example.tweaker
 
+import com.durganmcbroom.jobs.Job
+import com.durganmcbroom.jobs.SuccessfulJob
 import net.yakclient.components.extloader.api.environment.ExtLoaderEnvironment
 import net.yakclient.components.extloader.api.tweaker.EnvironmentTweaker
-import net.yakclient.extensions.test2.TweakerTest2
 
 
 public class TweakerEntry : EnvironmentTweaker {
@@ -11,9 +12,10 @@ public class TweakerEntry : EnvironmentTweaker {
             private set
     }
 
-    override fun tweak(environment: ExtLoaderEnvironment) {
+    override fun tweak(environment: ExtLoaderEnvironment): Job<Unit> {
         println("Could have tweaked, but i choose not to.")
-       println(TweakerTest2.something)
         tweaked = true
+
+        return SuccessfulJob { }
     }
 }

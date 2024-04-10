@@ -1,10 +1,9 @@
-import net.yakclient.gradle.MojangMappingProvider
-import net.yakclient.gradle.MutableExtensionRepository
+import net.yakclient.gradle.MinecraftMappings
 
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("net.yakclient") version "1.0.3"
+    id("net.yakclient") version "1.1"
 }
 
 group = "net.yakclient"
@@ -30,7 +29,6 @@ repositories {
 
 dependencies {
     implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-    implementation(yakclient.tweakerPartition.map { it.sourceSet.output })
 }
 
 tasks.jar {
@@ -39,68 +37,50 @@ tasks.jar {
 
 yakclient {
     model {
-        name.set("yakgradle-ext-test")
         groupId.set("net.yakclient.extensions")
+        name.set("yakgradle-ext-test")
         version.set("1.0-SNAPSHOT")
-        extensionClass.set("net.yakclient.test.MyExtension")
-
-        mainPartition.update {
-            it.map { partition ->
-                partition.repositories.add(
-                    MutableExtensionRepository(
-                        "fabric",
-                        mutableMapOf()
-                    )
-                )
-                partition
-            }
-        }
     }
 
-    tweakerPartition {
-        entrypoint.set("net.yakclient.extensions.example.tweaker.TweakerEntry")
-
-        this.dependencies {
-            implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
-            implementation("net.yakclient:boot:2.1-SNAPSHOT")
-            implementation("net.yakclient:archives:1.2-SNAPSHOT")
-            implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
-            implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
-        }
+    extensions {
+        require("net.yakclient.extensions:yakgradle-ext-test-2:1.0-SNAPSHOT")
     }
 
     partitions {
-        val nineteen_two by creating {
-            this.dependencies {
-                implementation(main)
-                minecraft("1.19.2")
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
-
-                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-//                "kaptNineteen_two"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
-            }
-
-            mappingsType.set("mojang")
-
-            supportedVersions.addAll(listOf("1.19.2", "1.18"))
+        main {
+            extensionClass = "net.yakclient.test.MyExtension"
         }
 
-//        create("eighteen") {
-//            this.dependencies {
-//                implementation(nineteen)
-//                minecraft("1.18")
-//                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
-//
-//                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-//                "kaptEighteen"("net.yakclient:yakclient-preprocessor:1.0-SNAPSHOT")
-//            }
-//
-//            supportedVersions.addAll(listOf("1.18"))
-//        }
-    }
+        tweaker {
+            tweakerClass = "net.yakclient.extensions.example.tweaker.TweakerEntry"
+            dependencies {
+                implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
+                implementation("net.yakclient:boot:2.1-SNAPSHOT")
+                implementation("net.yakclient:archives:1.2-SNAPSHOT")
+                implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
+                implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
+                implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
+            }
+        }
 
-    extension("net.yakclient.extensions:yakgradle-ext-test-2:1.0-SNAPSHOT")
+        version("nineteen_two") {
+            supportVersions("1.19.2")
+            mappings = MinecraftMappings.mojang
+            dependencies {
+                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+                minecraft("1.19.2")
+            }
+        }
+
+        version("eighteen") {
+            supportVersions("1.18")
+            dependencies {
+                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+                minecraft("1.18")
+            }
+            mappings = MinecraftMappings.mojang
+        }
+    }
 }
 
 publishing {

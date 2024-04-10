@@ -1,6 +1,6 @@
 package net.yakclient.gradle
 
-import net.yakclient.components.extloader.api.mapping.MappingsProvider
+import net.yakclient.archive.mapper.MappingsProvider
 import org.gradle.api.Named
 
 interface MinecraftDeobfuscator : Named {

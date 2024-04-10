@@ -98,26 +98,6 @@ fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescri
     return descriptor to ExtRepoArg(repositoryDir.toString(), "local")
 }
 
-//abstract class PublishDevExtension : Copy() {
-//    @get:Input
-//    abstract val toPublish : FileCollection
-//
-//    @get:OutputDirectory
-//    abstract val output: Property<File>
-//
-//    @TaskAction
-//    fun write(yak: YakClientExtension) {
-//        toPublish.co
-//        (project.tasks.getByName("jar").outputs.files ).forEach {
-//            it.copyRecursively(output.get().resolve(it.name), overwrite = true)
-//        }
-//        (project.tasks.getByName("generateErm").outputs.files
-//            .find { it.name=="erm.json" } ?: throw IllegalStateException("Couldnt find generated Extension Runtime model when creating mock repository for boot."))
-//            .run {
-//                copyRecursively(output.get() .resolve("${yak.erm.name}-${yak.erm.version}-erm.json"), overwrite = true)
-//            }
-//    }
-
 abstract class LaunchMinecraft : JavaExec() {
     @Input
     val mcVersion: Property<String> = project.objects.property(String::class.java).convention(

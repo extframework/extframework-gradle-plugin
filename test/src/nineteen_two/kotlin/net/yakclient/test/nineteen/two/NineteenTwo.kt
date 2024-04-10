@@ -3,9 +3,10 @@ package net.yakclient.test.nineteen.two
 import net.yakclient.client.api.annotation.Mixin
 import net.yakclient.extensions.test2.libraryMethod
 
-@Mixin("Something idk man")
+//@Mixin("Something idk man")
 class NineteenTwo {
     fun nineteenStuff() {
+        net.minecraft.client.Minecraft.ALT_FONT
         libraryMethod()
     }
 }
