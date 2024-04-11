@@ -1,5 +1,7 @@
 package net.yakclient.gradle
 
+import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.gradle.api.Action
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
@@ -18,31 +20,71 @@ data class MutableExtensionRuntimeModel(
 
     val partitions: SetProperty<MutableExtensionPartition>,
 ) {
-//    fun mainPartition(configure: Action<MutableMainVersionPartition>) {
-//        mainPartition.update { provider ->
-//            provider.map {
-//                configure.execute(it)
-//
-//                it
-//            }
-//        }
-//    }
-//
-//    fun versionPartitions(configure: Action<MutableExtensionVersionPartition>) {
-//        versionPartitions.update { p ->
-//            p.map {
-//                it.forEach {
-//                    configure.execute(it)
-//                }
-//
-//                it
-//            }
-//        }
-//    }
+    fun partitions(action: Action<MutableExtensionPartition>) {
+        (partitions.orNull ?: emptySet()).forEach { partition ->
+            action.execute(partition)
+        }
+    }
+
+    fun extensionRepositories(action: Action<PartitionRepositoryScope>) {
+        val scope = object : PartitionRepositoryScope {
+            val repositories = mutableSetOf<MutableExtensionRepository>()
+            override fun add(repository: MutableExtensionRepository) {
+                repositories.add(repository)
+            }
+        }
+
+        action.execute(scope)
+        extensionRepositories.addAll(scope.repositories.map { it.settings })
+    }
 }
 
 interface PartitionRepositoryScope {
     fun add(repository: MutableExtensionRepository)
+
+    fun mavenLocal() {
+        add(
+            MutableExtensionRepository(
+                "simple-maven",
+                mutableMapOf(
+                    "location" to mavenLocal,
+                    "type" to "local"
+                )
+            )
+        )
+    }
+
+    fun mavenCentral() {
+        add(
+            MutableExtensionRepository(
+                "simple-maven",
+                mutableMapOf(
+                    "location" to "https://repo.maven.apache.org/maven2/",
+                    "type" to "default"
+                )
+            )
+        )
+    }
+
+    fun maven(
+        location: String,
+        type: String = "default"
+    ) {
+        add(
+            MutableExtensionRepository(
+                "simple-maven",
+                mutableMapOf(
+                    "location" to location,
+                    "type" to type
+                )
+            )
+        )
+    }
+
+    fun yakclient() {
+        // TODO change when we get out of snapshot
+        maven("http://maven.yakclient.net/snapshots")
+    }
 }
 
 data class MutableExtensionRepository(
@@ -58,52 +100,15 @@ data class MutableExtensionPartition(
     val dependencies: SetProperty<MutableMap<String, String>>,
     val options: MapProperty<String, String>
 ) {
-    fun repositories(configure: Action<PartitionRepositoryScope>) {
-        repositories.update { p ->
-            val scope = object : PartitionRepositoryScope {
-                val repositories = mutableSetOf<MutableExtensionRepository>()
-                override fun add(repository: MutableExtensionRepository) {
-                    repositories.add(repository)
-                }
-            }
-
-            p.map {
-                configure.execute(scope)
-                it.addAll(scope.repositories)
-
-                it
+    fun repositories(action: Action<PartitionRepositoryScope>) {
+        val scope = object : PartitionRepositoryScope {
+            val repositories = mutableSetOf<MutableExtensionRepository>()
+            override fun add(repository: MutableExtensionRepository) {
+                repositories.add(repository)
             }
         }
+
+        action.execute(scope)
+        repositories.addAll(scope.repositories)
     }
 }
-
-//data class MutableMainVersionPartition(
-//    override var name: Property<String>,
-//    override var path: Property<String>,
-//    override val repositories: SetProperty<MutableExtensionRepository>,
-//    override val dependencies: SetProperty<MutableMap<String, String>>
-//) : MutableExtensionPartition
-//
-//data class MutableExtensionVersionPartition(
-//    override val name: Property<String>,
-//    override val path: Property<String>,
-//
-//    val mappingNamespace: Property<String>,
-//
-//    val supportedVersions: SetProperty<String>,
-//
-//    override val repositories: SetProperty<MutableExtensionRepository>,
-//    override val dependencies: SetProperty<MutableMap<String, String>>,
-//
-////    val mixins: MutableList<MutableExtensionMixin>,
-//) : MutableExtensionPartition
-//
-//data class MutableExtensionTweakerPartition(
-//    override var name: Property<String>,
-//    override var path: Property<String>,
-//
-//    override val repositories: SetProperty<MutableExtensionRepository>,
-//    override val dependencies: SetProperty<MutableMap<String, String>>,
-//
-//    val entrypoint: Property<String>
-//) : MutableExtensionPartition

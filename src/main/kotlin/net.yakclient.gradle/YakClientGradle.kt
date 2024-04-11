@@ -8,15 +8,15 @@ import net.yakclient.components.extloader.extension.partition.VersionedPartition
 import org.gradle.api.*
 import org.gradle.api.artifacts.*
 import org.gradle.api.artifacts.dsl.DependencyHandler
+import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.plugins.JvmEcosystemPlugin
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.configurationcache.extensions.capitalized
 import org.gradle.jvm.tasks.Jar
 import org.gradle.util.internal.GUtil
+import java.net.URI
 import java.nio.file.Path
-import java.util.*
 import kotlin.collections.ArrayList
 
 internal const val CLIENT_VERSION = "1.1-SNAPSHOT"
@@ -34,7 +34,6 @@ class YakClientGradle : Plugin<Project> {
 
         project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)
-            jar.from(generateErm)
             jar.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
 
             yakclient.partitions.configureEach { partition ->
@@ -46,6 +45,13 @@ class YakClientGradle : Plugin<Project> {
 
 
         project.registerLaunchTask(yakclient, project.tasks.getByName("publishToMavenLocal"))
+    }
+}
+
+fun RepositoryHandler.yakclient() {
+    maven {
+        it.isAllowInsecureProtocol = true
+        it.url = URI.create("http://maven.yakclient.net/snapshots")
     }
 }
 
@@ -63,7 +69,7 @@ abstract class YakClientExtension(
                 project.newMapProperty()
             )
 
-            model {
+            eagerModel {
                 it.partitions.add(partition)
             }
 
@@ -91,7 +97,7 @@ abstract class YakClientExtension(
                 project.newMapProperty()
             )
 
-            model {
+            eagerModel {
                 it.partitions.add(partition)
             }
 
@@ -122,7 +128,7 @@ abstract class YakClientExtension(
                 project.newMapProperty()
             )
 
-            model {
+            eagerModel {
                 it.partitions.add(partition)
             }
 
@@ -181,7 +187,7 @@ abstract class YakClientExtension(
         )
 
         project.dependencies.add("implementation", downloadExtensions.map {
-            it.output
+            it.output.asFileTree
         })
     }
 
@@ -193,14 +199,20 @@ abstract class YakClientExtension(
         action.execute(object : ExtensionDependencyHandler {
             override fun require(notation: String) {
                 val dep = project.dependencies.add(extensionConfiguration.name, notation) ?: return
-                model {
-                    it.extensions.add( ermDependency(dep))
+                eagerModel {
+                    it.extensions.add(ermDependency(dep))
                 }
             }
         })
     }
 
     fun model(action: Action<MutableExtensionRuntimeModel>) {
+        project.afterEvaluate {
+            eagerModel(action)
+        }
+    }
+
+    internal fun eagerModel(action: Action<MutableExtensionRuntimeModel>) {
         erm.update {
             it.map { erm ->
                 action.execute(erm)
@@ -345,8 +357,8 @@ class MinecraftTargetingPartitionHandler(
 }
 
 open class PartitionDependencyHandler(
-    private val delegate: DependencyHandler,
-    private val sourceSet: SourceSet,
+    protected val delegate: DependencyHandler,
+    val sourceSet: SourceSet,
     private val addDependency: (Dependency) -> Unit
 ) : DependencyHandler by delegate {
     override fun add(configurationName: String, dependencyNotation: Any): Dependency? {
@@ -374,8 +386,8 @@ open class PartitionDependencyHandler(
 }
 
 class VersionPartitionDependencyHandler(
-    private val delegate: DependencyHandler,
-    private val sourceSet: SourceSet,
+    delegate: DependencyHandler,
+    sourceSet: SourceSet,
     private val project: Project,
     private val mappingsType: String,
     addDependency: (Dependency) -> Unit

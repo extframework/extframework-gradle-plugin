@@ -1,8 +1,6 @@
 package net.yakclient.gradle.test
 
-import net.yakclient.gradle.setupMinecraft
 import org.junit.jupiter.api.Test
-import java.nio.file.Path
 
 class TestMinecraftRemapping {
     @Test

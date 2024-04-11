@@ -1,4 +1,5 @@
 import net.yakclient.gradle.MinecraftMappings
+import net.yakclient.gradle.yakclient
 
 plugins {
     kotlin("jvm") version "1.9.21"
@@ -21,10 +22,7 @@ tasks.launch {
 repositories {
     mavenCentral()
     mavenLocal()
-    maven {
-        isAllowInsecureProtocol = true
-        url = uri("http://maven.yakclient.net/snapshots")
-    }
+    yakclient()
 }
 
 dependencies {
@@ -40,6 +38,16 @@ yakclient {
         groupId.set("net.yakclient.extensions")
         name.set("yakgradle-ext-test")
         version.set("1.0-SNAPSHOT")
+        extensionRepositories {
+            mavenLocal()
+        }
+        partitions {
+            repositories {
+                yakclient()
+                mavenLocal()
+                mavenCentral()
+            }
+        }
     }
 
     extensions {
