@@ -1,4 +1,3 @@
-import net.yakclient.gradle.MinecraftMappings
 import net.yakclient.gradle.yakclient
 
 plugins {
@@ -71,23 +70,23 @@ yakclient {
             }
         }
 
-        version("nineteen_two") {
-            supportVersions("1.19.2")
-            mappings = MinecraftMappings.mojang
-            dependencies {
-                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-                minecraft("1.19.2")
-            }
-        }
-
-        version("eighteen") {
-            supportVersions("1.18")
-            dependencies {
-                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-                minecraft("1.18")
-            }
-            mappings = MinecraftMappings.mojang
-        }
+//        version("nineteen_two") {
+//            supportVersions("1.19.2")
+//            mappings = MinecraftMappings.mojang
+//            dependencies {
+//                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+//                minecraft("1.19.2")
+//            }
+//        }
+//
+//        version("eighteen") {
+//            supportVersions("1.18")
+//            dependencies {
+//                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+//                minecraft("1.18")
+//            }
+//            mappings = MinecraftMappings.mojang
+//        }
     }
 }
 

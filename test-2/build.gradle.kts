@@ -1,4 +1,5 @@
-import net.yakclient.gradle.MinecraftMappings
+import net.yakclient.gradle.MutableExtensionRepository
+import net.yakclient.gradle.deobf.MinecraftMappings
 import net.yakclient.gradle.yakclient
 
 plugins {
@@ -16,12 +17,17 @@ tasks.wrapper {
 
 tasks.launch {
     jvmArgs = listOf("-XstartOnFirstThread")
+    targetNamespace.set("mojang:deobfuscated")
 }
 
 repositories {
     mavenCentral()
     mavenLocal()
     yakclient()
+    maven {
+        url = uri("http://localhost:3000")
+        isAllowInsecureProtocol = true
+    }
 }
 
 dependencies {
@@ -44,8 +50,27 @@ yakclient {
                 yakclient()
                 mavenLocal()
                 mavenCentral()
+                add(MutableExtensionRepository(
+                    "fabric-mod:curse-maven",
+                    mutableMapOf(
+                        "location" to "http://localhost:3000"
+                    )
+                ))
             }
         }
+    }
+
+    extensions {
+        fabricMod(
+            name = "jei",
+            projectId = "238222",
+            fileId = "5101365"
+        )
+        fabricMod(
+            name = "fabric-api",
+            projectId = "306612",
+            fileId = "5105683"
+        )
     }
 
     partitions {

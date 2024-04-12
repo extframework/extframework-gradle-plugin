@@ -7,9 +7,13 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import java.io.FileOutputStream
+import java.nio.file.CopyOption
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
+import kotlin.io.path.name
 
 fun <T> Property<T>.ifPresent(block: (T) -> Unit) {
     if (isPresent) block(get())
@@ -29,7 +33,9 @@ internal inline fun <reified K, reified V> Project.newMapProperty(default: () ->
 }
 
 internal fun ArchiveReference.write(path: Path) {
-    JarOutputStream(FileOutputStream(path.toFile())).use { target ->
+    val temp = Files.createTempFile(path.name, "jar")
+
+    JarOutputStream(FileOutputStream(temp.toFile())).use { target ->
         reader.entries().forEach { e ->
             val entry = JarEntry(e.name)
 
@@ -50,4 +56,6 @@ internal fun ArchiveReference.write(path: Path) {
             target.closeEntry()
         }
     }
+
+    Files.copy(temp, path, StandardCopyOption.REPLACE_EXISTING)
 }

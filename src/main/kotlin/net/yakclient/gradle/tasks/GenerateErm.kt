@@ -1,4 +1,4 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.tasks
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
@@ -8,15 +8,9 @@ import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
+import net.yakclient.gradle.YakClientExtension
 import org.gradle.api.*
-import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.repositories.MavenArtifactRepository
-import org.gradle.api.file.FileCollection
-import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
-import org.gradle.api.logging.LogLevel
 import org.gradle.api.provider.*
-import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File

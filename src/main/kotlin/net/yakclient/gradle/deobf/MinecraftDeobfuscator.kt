@@ -1,4 +1,4 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.deobf
 
 import net.yakclient.archive.mapper.MappingsProvider
 import org.gradle.api.Named

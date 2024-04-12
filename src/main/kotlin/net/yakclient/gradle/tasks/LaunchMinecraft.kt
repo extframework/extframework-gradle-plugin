@@ -1,4 +1,4 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.tasks
 
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
@@ -8,6 +8,10 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.resolve
+import net.yakclient.gradle.*
+import net.yakclient.gradle.CLIENT_MAIN_CLASS
+import net.yakclient.gradle.CLIENT_VERSION
+import net.yakclient.gradle.YAKCLIENT_DIR
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.provider.Property

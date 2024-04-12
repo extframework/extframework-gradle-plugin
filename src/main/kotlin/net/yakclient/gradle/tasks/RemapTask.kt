@@ -1,9 +1,11 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.tasks
 
 import net.yakclient.archive.mapper.findShortest
 import net.yakclient.archive.mapper.newMappingsGraph
 import net.yakclient.archive.mapper.transform.transformArchive
 import net.yakclient.archives.Archives
+import net.yakclient.gradle.YakClientExtension
+import net.yakclient.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Property
@@ -13,9 +15,7 @@ import org.gradle.api.tasks.TaskAction
 import javax.inject.Inject
 import kotlin.io.path.toPath
 
-abstract class RemapTask @Inject constructor(
-    val yakClientExtension: YakClientExtension
-) : DefaultTask() {
+abstract class RemapTask : DefaultTask() {
     @get:InputFiles
     abstract val inputOutputFiles: ConfigurableFileCollection
 
@@ -30,6 +30,8 @@ abstract class RemapTask @Inject constructor(
 
     @TaskAction
     fun remap() {
+        val yakClientExtension: YakClientExtension = project.extensions.getByType(YakClientExtension::class.java)
+
         val graph = newMappingsGraph(yakClientExtension.mappingProviders.map { it.provider })
         val mappings = graph.findShortest(
             sourceNamespace.get(),

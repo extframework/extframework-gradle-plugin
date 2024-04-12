@@ -1,6 +1,8 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.tasks
 
 import net.yakclient.common.util.resolve
+import net.yakclient.gradle.YakClientExtension
+import net.yakclient.gradle.mavenLocal
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -9,7 +11,6 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
-import java.nio.file.Path
 
 abstract class GenerateMcSources : DefaultTask() {
     private val basePath = project.mavenLocal()

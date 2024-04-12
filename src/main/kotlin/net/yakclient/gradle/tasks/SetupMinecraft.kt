@@ -1,4 +1,4 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.tasks
 
 import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.resources.openStream
@@ -8,6 +8,8 @@ import net.yakclient.archives.Archives
 import net.yakclient.common.util.copyTo
 import net.yakclient.common.util.make
 import net.yakclient.common.util.resolve
+import net.yakclient.gradle.deobf.MinecraftDeobfuscator
+import net.yakclient.gradle.write
 import net.yakclient.launchermeta.handler.*
 import java.io.BufferedReader
 import java.io.File
@@ -136,31 +138,7 @@ fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>, 
         toNS,
     )
 
-    val jar = Files.createTempFile(jarPath.name, ".jar")
-
-    JarOutputStream(FileOutputStream(jar.toFile())).use { target ->
-        archive.reader.entries().forEach { e ->
-            val entry = JarEntry(e.name)
-
-            target.putNextEntry(entry)
-
-            val eIn = e.resource.openStream()
-
-            //Stolen from https://stackoverflow.com/questions/1281229/how-to-use-jaroutputstream-to-create-a-jar-file
-            val buffer = ByteArray(1024)
-
-            while (true) {
-                val count: Int = eIn.read(buffer)
-                if (count == -1) break
-
-                target.write(buffer, 0, count)
-            }
-
-            target.closeEntry()
-        }
-    }
-
-    Files.copy(jar, jarPath, StandardCopyOption.REPLACE_EXISTING)
+    archive.write(jarPath)
 }
 
 

@@ -38,6 +38,9 @@ dependencies {
     implementation("net.yakclient:archive-mapper-proguard:1.2.1-SNAPSHOT") {
         isChanging = true
     }
+    implementation("net.yakclient:archive-mapper-tiny:1.2.1-SNAPSHOT") {
+        isChanging = true
+    }
     implementation("net.yakclient:launchermeta-handler:1.1-SNAPSHOT")
 
     implementation("net.yakclient:archives:1.2-SNAPSHOT")

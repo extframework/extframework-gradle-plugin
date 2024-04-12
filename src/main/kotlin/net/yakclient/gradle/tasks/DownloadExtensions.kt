@@ -1,4 +1,4 @@
-package net.yakclient.gradle
+package net.yakclient.gradle.tasks
 
 import com.durganmcbroom.artifact.resolver.Artifact
 import com.durganmcbroom.artifact.resolver.ResolutionContext
@@ -6,7 +6,7 @@ import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactReque
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
 import com.durganmcbroom.jobs.launch
-import com.durganmcbroom.resources.ResourceAlgorithm.SHA1
+import com.durganmcbroom.resources.ResourceAlgorithm
 import net.yakclient.archives.ArchiveReference
 import net.yakclient.archives.Archives
 import net.yakclient.boot.archive.ArchiveGraph
@@ -18,6 +18,8 @@ import net.yakclient.common.util.resolve
 import net.yakclient.components.extloader.api.extension.ExtensionPartition
 import net.yakclient.components.extloader.extension.artifact.ExtensionArtifactMetadata
 import net.yakclient.components.extloader.extension.artifact.ExtensionRepositoryFactory
+import net.yakclient.gradle.YakClientExtension
+import net.yakclient.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
@@ -64,7 +66,6 @@ private fun newEmptyArchive() = object : ArchiveReference {
     override fun close() {}
 }
 
-
 abstract class DownloadExtensions : DefaultTask() {
     private val basePath = project.projectDir.toPath() resolve "build-ext"
 
@@ -76,6 +77,7 @@ abstract class DownloadExtensions : DefaultTask() {
 
     @TaskAction
     fun download() {
+        val yakclient = project.extensions.getByType(YakClientExtension::class.java)
         project.configurations.getByName(configuration.get()).dependencies.forEach { dependency ->
             val dependencyType = DependencyTypeContainer(
                 ArchiveGraph(Files.createTempDirectory("yak-gradle-m2"))
@@ -99,7 +101,7 @@ abstract class DownloadExtensions : DefaultTask() {
                         is DefaultMavenLocalArtifactRepository -> SimpleMavenRepositorySettings.local()
                         is MavenArtifactRepository -> SimpleMavenRepositorySettings.default(
                             it.url.toString(),
-                            preferredHash = SHA1
+                            preferredHash = ResourceAlgorithm.SHA1
                         )
 
                         else -> throw IllegalArgumentException("Repository type: '${it.name}' is not currently supported.")
