@@ -1,13 +1,3 @@
-import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ComponentResolvers
-import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ConfiguredModuleComponentRepository
-import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ModuleComponentRepositoryAccess
-import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ResolvableArtifact
-import org.gradle.api.internal.artifacts.repositories.ResolutionAwareRepository
-import org.gradle.api.internal.artifacts.repositories.descriptor.RepositoryDescriptor
-import org.gradle.internal.action.InstantiatingAction
-import org.gradle.internal.component.external.model.ModuleComponentResolveMetadata
-import org.gradle.internal.reflect.Instantiator
-
 plugins {
     `java-gradle-plugin`
     kotlin("jvm") version "1.9.21"
@@ -17,6 +7,7 @@ plugins {
 
 group = "net.yakclient"
 version = "1.1"
+
 
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"

@@ -24,9 +24,11 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
 import java.net.URI
 import java.nio.file.Files
@@ -67,18 +69,17 @@ private fun newEmptyArchive() = object : ArchiveReference {
 }
 
 abstract class DownloadExtensions : DefaultTask() {
-    private val basePath = project.projectDir.toPath() resolve "build-ext"
+    private val basePath = project.projectDir.toPath() resolve "build-ext" resolve "extensions"
 
     @get:Input
-    abstract val configuration: Property<String>
+    abstract val dependencies: ListProperty<String>
 
-    @get:Internal
+    @get:OutputFiles
     val output: ConfigurableFileTree = project.fileTree(basePath).builtBy(this)
 
     @TaskAction
     fun download() {
-        val yakclient = project.extensions.getByType(YakClientExtension::class.java)
-        project.configurations.getByName(configuration.get()).dependencies.forEach { dependency ->
+        dependencies.get().forEach { dependency ->
             val dependencyType = DependencyTypeContainer(
                 ArchiveGraph(Files.createTempDirectory("yak-gradle-m2"))
             )
@@ -86,14 +87,7 @@ abstract class DownloadExtensions : DefaultTask() {
 
             val factory = ExtensionRepositoryFactory(dependencyType)
 
-            val request = SimpleMavenArtifactRequest(
-                SimpleMavenDescriptor(
-                    dependency.group!!,
-                    dependency.name,
-                    dependency.version!!,
-                    null
-                )
-            )
+            val request = SimpleMavenArtifactRequest(dependency)
 
             val baseArtifact = launch {
                 val artifact = project.repositories.map {

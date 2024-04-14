@@ -6,6 +6,7 @@ import org.gradle.api.Action
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
+import java.io.Serializable
 
 
 data class MutableExtensionRuntimeModel(
@@ -99,7 +100,7 @@ data class MutableExtensionPartition(
     val repositories: SetProperty<MutableExtensionRepository>,
     val dependencies: SetProperty<MutableMap<String, String>>,
     val options: MapProperty<String, String>
-) {
+) : Serializable {
     fun repositories(action: Action<PartitionRepositoryScope>) {
         val scope = object : PartitionRepositoryScope {
             val repositories = mutableSetOf<MutableExtensionRepository>()

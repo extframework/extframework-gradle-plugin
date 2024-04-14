@@ -19,16 +19,13 @@ abstract class PartitionHandler<T : PartitionDependencyHandler>(
     // A shorthand for executing configurations just as the configuration block of this partition ends.
     private val configure: (() -> Unit) -> Unit
 ) : Named {
+    protected val yakclient: YakClientExtension = project.extensions.getByType(YakClientExtension::class.java)
+
     abstract val dependencies: T
 
     init {
-        val yakclient = project.extensions.getByType(YakClientExtension::class.java)
-
         project.dependencies.add(sourceSet.implementationConfigurationName, yakclient.downloadExtensions.map {
             it.output.asFileTree
-        })
-        project.dependencies.add(sourceSet.implementationConfigurationName, yakclient.downloadFabricMods.flatMap { t ->
-            t.output.map { it[partition.name.get()]!! }
         })
     }
 
@@ -48,6 +45,12 @@ class MainPartitionHandler(
     partition: MutableExtensionPartition,
     sourceSet: SourceSet, configure: (() -> Unit) -> Unit
 ) : PartitionHandler<PartitionDependencyHandler>(project, partition, sourceSet, configure) {
+    init {
+//        project.dependencies.add(sourceSet.implementationConfigurationName, yakclient.downloadFabricMods.flatMap { t ->
+//            t.output.map { it[partition.name.get()]!! }
+//        })
+    }
+
     override val dependencies = PartitionDependencyHandler(
         project.dependencies, sourceSet
     ) {

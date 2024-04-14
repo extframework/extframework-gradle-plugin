@@ -48,7 +48,9 @@ internal class RawFabricMappingProvider private constructor(
         val mappingData = store[identifier] ?: run {
             val url = URL("https://raw.githubusercontent.com/FabricMC/intermediary/master/mappings/$identifier.tiny")
 
-            url.toResource()
+            val resource = url.toResource()
+            store.put(identifier, resource)
+            resource
         }
 
         return TinyV1MappingsParser.parse(mappingData.openStream())
