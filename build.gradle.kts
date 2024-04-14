@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.yakclient"
-version = "1.1"
+version = "1.1.1"
 
 
 tasks.wrapper {

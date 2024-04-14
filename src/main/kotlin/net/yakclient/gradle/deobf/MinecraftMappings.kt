@@ -10,6 +10,7 @@ object MinecraftMappings {
     @JvmStatic
     lateinit var mojang : MinecraftDeobfuscator
         private set
+    @JvmStatic
     lateinit var fabric: MinecraftDeobfuscator
         private set
 
