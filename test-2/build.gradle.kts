@@ -83,6 +83,15 @@ yakclient {
             }
         }
 
+        version("notLatest") {
+            supportVersions("1.19.1")
+            mappings = MinecraftMappings.mojang
+
+            dependencies {
+                minecraft("1.19.1")
+            }
+        }
+
         main {
             extensionClass = "net.yakclient.extensions.test2.MyExtension2"
             dependencies {

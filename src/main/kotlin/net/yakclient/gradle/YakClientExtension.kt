@@ -107,17 +107,19 @@ abstract class YakClientExtension(
                 )
             }
 
+            val taskDir = project.projectDir.resolve("build-ext").resolve("fabric").resolve(name)
+
             val task = registerFabricModTask(
                 project,
                 partition,
                 handler.mappings.deobfuscatedNamespace,
                 handler.supportedVersions.first(),
-                project.projectDir.resolve("build-ext").resolve("fabric").toPath()
+                taskDir.toPath()
             )
 
             project.dependencies.add(
                 sourceSet.implementationConfigurationName,
-                project.fileTree(project.projectDir.resolve("build-ext").resolve("fabric")).builtBy(task)
+                project.fileTree(taskDir).builtBy(task)
             )
         }
     }
