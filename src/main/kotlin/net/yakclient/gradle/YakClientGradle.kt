@@ -24,7 +24,7 @@ class YakClientGradle : Plugin<Project> {
         project.plugins.apply(JvmEcosystemPlugin::class.java)
         val yakclient = project.extensions.create("yakclient", YakClientExtension::class.java, project)
 
-        val generateErm = project.registerGenerateErmTask(yakclient)
+        val generateErm = project.registerGenerateErmTask()
 
         project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)

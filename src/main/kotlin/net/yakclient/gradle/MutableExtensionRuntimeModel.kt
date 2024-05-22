@@ -1,8 +1,8 @@
 package net.yakclient.gradle
 
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
-import com.fasterxml.jackson.annotation.JsonIgnore
 import org.gradle.api.Action
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
@@ -16,7 +16,7 @@ data class MutableExtensionRuntimeModel(
 
     val packagingType: Property<String>, // Jar, War, Zip, etc...
 
-    val extensionRepositories: SetProperty<Map<String, String>>,
+    val extensionRepositories: ListProperty<Map<String, String>>,
     val extensions: SetProperty<Map<String, String>>,
 
     val partitions: SetProperty<MutableExtensionPartition>,
@@ -97,7 +97,7 @@ data class MutableExtensionPartition(
     val type: String,
     val name: Property<String>,
     val path: Property<String>,
-    val repositories: SetProperty<MutableExtensionRepository>,
+    val repositories: ListProperty<MutableExtensionRepository>,
     val dependencies: SetProperty<MutableMap<String, String>>,
     val options: MapProperty<String, String>
 ) : Serializable {

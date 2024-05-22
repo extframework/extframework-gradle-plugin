@@ -1,7 +1,6 @@
 package net.yakclient.gradle.tasks
 
 import com.durganmcbroom.jobs.launch
-import com.durganmcbroom.resources.openStream
 import net.yakclient.archive.mapper.ArchiveMapping
 import net.yakclient.archive.mapper.transform.transformArchive
 import net.yakclient.archives.Archives
@@ -13,29 +12,11 @@ import net.yakclient.gradle.write
 import net.yakclient.launchermeta.handler.*
 import java.io.BufferedReader
 import java.io.File
-import java.io.FileOutputStream
 import java.io.FileReader
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.util.jar.JarEntry
-import java.util.jar.JarOutputStream
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
-import kotlin.io.path.name
 import kotlin.io.path.writeBytes
-
-fun getMinecraftPaths(version: String, basePath: Path) : List<Path>? {
-    val minecraftPath = basePath resolve "net" resolve "minecraft" resolve "client" resolve version
-    val minecraftJarPath = minecraftPath resolve "minecraft-${version}.jar"
-
-    val dependenciesMarker = minecraftPath resolve ".MINECRAFT_LIBS_MARKER"
-
-    if (!Files.exists(minecraftJarPath)) return null
-    if (!Files.exists(dependenciesMarker)) return null
-
-    return parseDependencyMarker(dependenciesMarker) + minecraftJarPath
-}
 
 fun setupMinecraft(
     version: String,
@@ -64,7 +45,6 @@ data class McMetadata(
 private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String): Pair<McMetadata, Boolean> = launch {
     val minecraftPath = basePath resolve "net" resolve "minecraft" resolve "client" resolve version resolve mappingsType
     val minecraftJarPath = minecraftPath resolve "minecraft-${version}.jar"
-//    val mappingsPath = minecraftPath resolve "minecraft-mappings-${version}.txt"
 
     val libPath = minecraftPath resolve "libs"
 
@@ -86,13 +66,6 @@ private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String
                 ?: throw IllegalArgumentException("Cant find client in launch metadata?")
             clientResource copyTo minecraftJarPath
         }
-
-//        // Download mappings
-//        if (mappingsPath.make()) {
-//            val mappingsResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT_MAPPINGS]?.toResource()
-//                ?: throw IllegalArgumentException("Cant find client mappings in launch metadata?")
-//            mappingsResource copyToBlocking mappingsPath
-//        }
 
         if (dependenciesMarker.make()) {
             val processor = DefaultMetadataProcessor()

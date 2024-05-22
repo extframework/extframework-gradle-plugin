@@ -3,11 +3,11 @@ package net.yakclient.gradle
 import com.durganmcbroom.resources.openStream
 import net.yakclient.archives.ArchiveReference
 import org.gradle.api.Project
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import java.io.FileOutputStream
-import java.nio.file.CopyOption
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -27,6 +27,9 @@ internal inline fun <reified T> Project.property(default: () -> T? = { null }): 
 
 internal inline fun <reified T> Project.newSetProperty(default: () -> Set<T> = { HashSet()}): SetProperty<T> {
     return objects.setProperty(T::class.java).convention(default())
+}
+internal inline fun <reified T> Project.newListProperty(default: () -> List<T> = { ArrayList()}): ListProperty<T> {
+    return objects.listProperty(T::class.java).convention(default())
 }
 internal inline fun <reified K, reified V> Project.newMapProperty(default: () -> Map<K, V> = { HashMap()}): MapProperty<K, V> {
     return objects.mapProperty(K::class.java, V::class.java).convention(default())

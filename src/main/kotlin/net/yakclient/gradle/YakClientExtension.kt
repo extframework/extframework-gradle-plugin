@@ -12,7 +12,6 @@ import net.yakclient.gradle.tasks.DownloadExtensions
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
@@ -43,7 +42,7 @@ abstract class YakClientExtension(
                 MainPartitionLoader.TYPE,
                 project.property { "main" },
                 project.property { "META-INF/partitions/main" },
-                project.newSetProperty(),
+                project.newListProperty(),
                 project.newSetProperty(),
                 project.newMapProperty()
             )
@@ -63,7 +62,7 @@ abstract class YakClientExtension(
                 TweakerPartitionLoader.TYPE,
                 project.property { "tweaker" },
                 project.property { "META-INF/partitions/tweaker" },
-                project.newSetProperty(),
+                project.newListProperty(),
                 project.newSetProperty(),
                 project.newMapProperty()
             )
@@ -86,7 +85,7 @@ abstract class YakClientExtension(
                 VersionedPartitionLoader.TYPE,
                 project.property { name },
                 project.property { "META-INF/partitions/$name" },
-                project.newSetProperty(),
+                project.newListProperty(),
                 project.newSetProperty(),
                 project.newMapProperty()
             )
@@ -141,7 +140,7 @@ abstract class YakClientExtension(
             project.property {
                 "jar"
             },
-            project.newSetProperty(),
+            project.newListProperty(),
             project.newSetProperty(),
             project.newSetProperty(),
         )

@@ -5,7 +5,7 @@ import net.yakclient.gradle.yakclient
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("net.yakclient") version "1.1"
+    id("net.yakclient") version "1.1.1"
 }
 
 group = "net.yakclient"

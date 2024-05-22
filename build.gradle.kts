@@ -8,7 +8,6 @@ plugins {
 group = "net.yakclient"
 version = "1.1.1"
 
-
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"
 }
@@ -32,6 +31,7 @@ dependencies {
     implementation("net.yakclient:archive-mapper-tiny:1.2.1-SNAPSHOT") {
         isChanging = true
     }
+
     implementation("net.yakclient:launchermeta-handler:1.1-SNAPSHOT")
 
     implementation("net.yakclient:archives:1.2-SNAPSHOT")
@@ -42,6 +42,7 @@ dependencies {
     implementation("net.yakclient:object-container:1.0-SNAPSHOT") {
         isChanging = true
     }
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
     implementation("net.yakclient.components:ext-loader:1.1-SNAPSHOT") {
         isChanging = true
@@ -50,9 +51,6 @@ dependencies {
     implementation("net.yakclient:boot:2.1-SNAPSHOT") {
         isChanging = true
     }
-}
-
-tasks.compileJava {
 }
 
 gradlePlugin {
@@ -100,7 +98,6 @@ allprojects {
     }
 
     repositories {
-        mavenLocal()
         mavenCentral()
         maven {
             isAllowInsecureProtocol = true

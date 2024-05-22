@@ -18,13 +18,10 @@ import net.yakclient.gradle.tasks.RemapTask
 import net.yakclient.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.provider.ListProperty
-import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
@@ -38,17 +35,19 @@ abstract class DownloadFabricMod : DefaultTask() {
     @get:Input
     abstract val mods: ListProperty<String>
 
-    @get:Input
-    abstract val partition: Property<String>
-
     @get:OutputFiles
-    val output: ConfigurableFileTree =
-        project.fileTree(
-            partition.map { (basePath resolve it).toFile() }
-        ).builtBy(this)
+    val output: ConfigurableFileTree = project.fileTree(
+        basePath
+    ).builtBy(this)
 
     @TaskAction
     fun download() {
+        // TODO Hacky
+        if (project.gradle.startParameter.isOffline) {
+            logger.warn("Attempted to download fabric mods but Gradle is in offline mode, ignoring for now...")
+            return
+        }
+
         mods.get().forEach { mod ->
             project.repositories.firstNotNullOfOrNull {
                 val request = SimpleMavenArtifactRequest(
@@ -96,7 +95,7 @@ abstract class DownloadFabricMod : DefaultTask() {
                 fun setupMod(artifact: Artifact<SimpleMavenArtifactMetadata>) {
                     val descriptor = artifact.metadata.descriptor
 
-                    val artifactPath = (basePath resolve partition.get()) resolve descriptor.artifact resolve descriptor.version
+                    val artifactPath = basePath resolve descriptor.artifact resolve descriptor.version
 
                     val resource = (artifact.metadata.resource
                         ?: throw Exception("Fabric mod: '$descriptor' does not have a jar associated with it (there is no mod present here.)"))
@@ -121,26 +120,20 @@ fun registerFabricModTask(
     version: String,
     output: Path
 ): TaskProvider<*> {
-    val upperClassPartitionName = partition.name.get().replaceFirstChar {
-        if (it.isLowerCase()) it.titlecase(
-            Locale.getDefault()
-        ) else it.toString()
-    }
-
-    val remapTaskName = "remap${upperClassPartitionName}FabricMods"
-
-    val downloadModTask = project.tasks.register(
-        "download${upperClassPartitionName}FabricMods", DownloadFabricMod::class.java
-    ) {
-        it.partition.set(partition.name)
-    }
+    val downloadModTask = project.tasks.maybeCreate("downloadFabricMods", DownloadFabricMod::class.java)
 
     return project.tasks.register(
-        remapTaskName, RemapTask::class.java
+        "remap${
+            partition.name.get().replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(
+                    Locale.getDefault()
+                ) else it.toString()
+            }
+        }FabricMods", RemapTask::class.java
     ) {
         it.dependsOn(downloadModTask)
 
-        it.input.setFrom(downloadModTask.map(DownloadFabricMod::output))
+        it.input.setFrom(downloadModTask.output)
         it.mappingIdentifier.set(version)
         it.sourceNamespace.set(INTERMEDIARY_NAMESPACE)
         it.targetNamespace.set(mappingTarget)
