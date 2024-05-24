@@ -70,7 +70,6 @@ fun downloadClient(version: String, devMode: Boolean = false) {
     val outputPath = preDownloadClient(version)
 
     if (Files.exists(outputPath)) return
-
     val layout = if (devMode)
         SimpleMavenLocalLayout()
     else SimpleMavenDefaultLayout("http://maven.yakclient.net/snapshots", ResourceAlgorithm.SHA1,
@@ -80,15 +79,13 @@ fun downloadClient(version: String, devMode: Boolean = false) {
     )
 
     launch {
-        val resourceOr = layout.resourceOf(
+        val resource = layout.resourceOf(
             "net.yakclient",
             "client",
             version,
             "all",
             "jar"
-        )
-
-        val resource = resourceOr().merge()
+        )().merge()
 
         resource copyTo outputPath
     }

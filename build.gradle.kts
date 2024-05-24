@@ -6,17 +6,19 @@ plugins {
 }
 
 group = "net.yakclient"
-version = "1.1.1"
+version = "1.1.2"
 
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"
 }
 
+val artifactResolverVersion = "1.1.2-SNAPSHOT"
+
 dependencies {
-    implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT") {
+    implementation("com.durganmcbroom:artifact-resolver:$artifactResolverVersion") {
         isChanging = true
     }
-    implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT") {
+    implementation("com.durganmcbroom:artifact-resolver-simple-maven:$artifactResolverVersion") {
         isChanging = true
     }
     implementation("net.yakclient:archive-mapper-transform:1.2.1-SNAPSHOT") {
@@ -32,11 +34,11 @@ dependencies {
         isChanging = true
     }
 
-    implementation("net.yakclient:launchermeta-handler:1.1-SNAPSHOT")
+    implementation("net.yakclient:launchermeta-handler:1.1.2-SNAPSHOT")
 
     implementation("net.yakclient:archives:1.2-SNAPSHOT")
 
-    implementation("net.yakclient:common-util:1.1-SNAPSHOT")
+    implementation("net.yakclient:common-util:1.1.2-SNAPSHOT")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
     implementation("net.yakclient:object-container:1.0-SNAPSHOT") {
