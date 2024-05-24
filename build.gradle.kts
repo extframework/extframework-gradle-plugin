@@ -12,7 +12,7 @@ tasks.wrapper {
     gradleVersion = "8.6-rc-1"
 }
 
-val artifactResolverVersion = "1.1.2-SNAPSHOT"
+val artifactResolverVersion = "1.1.3-SNAPSHOT"
 
 dependencies {
     implementation("com.durganmcbroom:artifact-resolver:$artifactResolverVersion") {
@@ -38,7 +38,7 @@ dependencies {
 
     implementation("net.yakclient:archives:1.2-SNAPSHOT")
 
-    implementation("net.yakclient:common-util:1.1.2-SNAPSHOT")
+    implementation("net.yakclient:common-util:1.1.3-SNAPSHOT")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
     implementation("net.yakclient:object-container:1.0-SNAPSHOT") {
@@ -46,11 +46,11 @@ dependencies {
     }
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
-    implementation("net.yakclient.components:ext-loader:1.1-SNAPSHOT") {
+    implementation("net.yakclient.components:ext-loader:1.1.1-SNAPSHOT") {
         isChanging = true
     }
 
-    implementation("net.yakclient:boot:2.1-SNAPSHOT") {
+    implementation("net.yakclient:boot:2.1.1-SNAPSHOT") {
         isChanging = true
     }
 }

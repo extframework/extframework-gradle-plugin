@@ -13,7 +13,7 @@ import org.gradle.jvm.tasks.Jar
 import java.net.URI
 import java.nio.file.Path
 
-internal const val CLIENT_VERSION = "1.1-SNAPSHOT"
+internal const val CLIENT_VERSION = "1.1.1-SNAPSHOT"
 internal const val CLIENT_MAIN_CLASS = "net.yakclient.client.MainKt"
 internal val YAKCLIENT_DIR = Path.of(System.getProperty("user.home")) resolve ".yakclient"
 
