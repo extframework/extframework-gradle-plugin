@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.yakclient"
-version = "1.1.2"
+version = "1.1.3"
 
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"
