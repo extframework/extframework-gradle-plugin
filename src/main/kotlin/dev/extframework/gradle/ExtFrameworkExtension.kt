@@ -1,14 +1,14 @@
-package net.yakclient.gradle
+package dev.extframework.gradle
 
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
-import net.yakclient.components.extloader.extension.partition.MainPartitionLoader
-import net.yakclient.components.extloader.extension.partition.TweakerPartitionLoader
-import net.yakclient.components.extloader.extension.partition.VersionedPartitionLoader
-import net.yakclient.gradle.deobf.MinecraftDeobfuscator
-import net.yakclient.gradle.deobf.MinecraftMappings
-import net.yakclient.gradle.fabric.tasks.DownloadFabricMod
-import net.yakclient.gradle.fabric.tasks.registerFabricModTask
-import net.yakclient.gradle.tasks.DownloadExtensions
+import dev.extframework.components.extloader.extension.partition.MainPartitionLoader
+import dev.extframework.components.extloader.extension.partition.TweakerPartitionLoader
+import dev.extframework.components.extloader.extension.partition.VersionedPartitionLoader
+import dev.extframework.gradle.deobf.MinecraftDeobfuscator
+import dev.extframework.gradle.deobf.MinecraftMappings
+import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
+import dev.extframework.gradle.fabric.tasks.registerFabricModTask
+import dev.extframework.gradle.tasks.DownloadExtensions
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
@@ -17,7 +17,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
 import java.lang.IllegalArgumentException
 
-abstract class YakClientExtension(
+abstract class ExtFrameworkExtension(
     internal val project: Project
 ) {
     internal val partitions = object : NamedDomainPartitionContainer(project.container(PartitionHandler::class.java)) {
@@ -101,7 +101,7 @@ abstract class YakClientExtension(
                     project,
                     partition,
                     sourceSet,
-                    this@YakClientExtension,
+                    this@ExtFrameworkExtension,
                     it
                 )
             }
@@ -180,7 +180,7 @@ abstract class YakClientExtension(
                 projectId: String,
                 fileId: String,
             ) {
-                require("net.yakclient.integrations:fabric-ext:1.0-SNAPSHOT")
+                require("dev.extframework.integrations:fabric-ext:1.0-SNAPSHOT")
 
                 project.tasks.withType(DownloadFabricMod::class.java).configureEach {
                     it.mods.add("curse.maven:$name-$projectId:$fileId")

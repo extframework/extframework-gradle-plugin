@@ -1,15 +1,15 @@
-package net.yakclient.gradle.tasks
+package dev.extframework.gradle.tasks
 
 import com.durganmcbroom.jobs.launch
-import net.yakclient.archive.mapper.ArchiveMapping
-import net.yakclient.archive.mapper.transform.transformArchive
-import net.yakclient.archives.Archives
-import net.yakclient.common.util.copyTo
-import net.yakclient.common.util.make
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.deobf.MinecraftDeobfuscator
-import net.yakclient.gradle.write
-import net.yakclient.launchermeta.handler.*
+import dev.extframework.archive.mapper.ArchiveMapping
+import dev.extframework.archive.mapper.transform.transformArchive
+import dev.extframework.archives.Archives
+import dev.extframework.common.util.copyTo
+import dev.extframework.common.util.make
+import dev.extframework.common.util.resolve
+import dev.extframework.gradle.deobf.MinecraftDeobfuscator
+import dev.extframework.gradle.write
+import dev.extframework.launchermeta.handler.*
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader

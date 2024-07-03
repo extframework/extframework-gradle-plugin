@@ -1,7 +1,7 @@
-package net.yakclient.gradle.deobf
+package dev.extframework.gradle.deobf
 
-import net.yakclient.archive.mapper.MappingsProvider
-import net.yakclient.components.extloader.extension.mapping.MojangExtensionMappingProvider
+import dev.extframework.archive.mapper.MappingsProvider
+import dev.extframework.components.extloader.extension.mapping.MojangExtensionMappingProvider
 import java.nio.file.Path
 
 class MojangDeobfuscator(

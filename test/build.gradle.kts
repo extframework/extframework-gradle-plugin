@@ -1,12 +1,12 @@
-import net.yakclient.gradle.yakclient
+import dev.extframework.gradle.extframework
 
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("net.yakclient") version "1.1.1"
+    id("dev.extframework") version "1.1.4"
 }
 
-group = "net.yakclient"
+group = "dev.extframework"
 version = "1.0-SNAPSHOT"
 
 tasks.wrapper {
@@ -21,28 +21,24 @@ tasks.launch {
 repositories {
     mavenCentral()
     mavenLocal()
-    yakclient()
+    extframework()
 }
 
 dependencies {
-    implementation("net.yakclient:client-api:1.0-SNAPSHOT")
+    implementation("dev.extframework:client-api:1.2-SNAPSHOT")
 }
 
-tasks.jar {
-    archiveBaseName.set("yakgradle-ext-test")
-}
-
-yakclient {
+extension {
     model {
-        groupId.set("net.yakclient.extensions")
-        name.set("yakgradle-ext-test")
+        groupId.set("dev.extframework.extensions")
+        name.set("extframework-ext-test")
         version.set("1.0-SNAPSHOT")
         extensionRepositories {
             mavenLocal()
         }
         partitions {
             repositories {
-                yakclient()
+                extframework()
                 mavenLocal()
                 mavenCentral()
             }
@@ -50,43 +46,25 @@ yakclient {
     }
 
     extensions {
-        require("net.yakclient.extensions:yakgradle-ext-test-2:1.0-SNAPSHOT")
+        require("dev.extframework.extensions:extframework-ext-test-2:1.0-SNAPSHOT")
     }
 
     partitions {
         main {
-            extensionClass = "net.yakclient.test.MyExtension"
+            extensionClass = "dev.extframework.test.MyExtension"
         }
 
         tweaker {
-            tweakerClass = "net.yakclient.extensions.example.tweaker.TweakerEntry"
+            tweakerClass = "dev.extframework.extensions.example.tweaker.TweakerEntry"
             dependencies {
-                implementation("net.yakclient.components:ext-loader:1.0-SNAPSHOT")
-                implementation("net.yakclient:boot:2.1-SNAPSHOT")
-                implementation("net.yakclient:archives:1.2-SNAPSHOT")
+                implementation("dev.extframework.components:ext-loader:1.1.1-SNAPSHOT")
+                implementation("dev.extframework:boot:2.1.1-SNAPSHOT")
+                implementation("dev.extframework:archives:1.2-SNAPSHOT")
                 implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
                 implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
                 implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
             }
         }
-
-//        version("nineteen_two") {
-//            supportVersions("1.19.2")
-//            mappings = MinecraftMappings.mojang
-//            dependencies {
-//                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-//                minecraft("1.19.2")
-//            }
-//        }
-//
-//        version("eighteen") {
-//            supportVersions("1.18")
-//            dependencies {
-//                implementation("net.yakclient:client-api:1.0-SNAPSHOT")
-//                minecraft("1.18")
-//            }
-//            mappings = MinecraftMappings.mojang
-//        }
     }
 }
 
@@ -98,8 +76,8 @@ publishing {
                 classifier = "erm"
             }
 
-            groupId = "net.yakclient.extensions"
-            artifactId = "yakgradle-ext-test"
+            groupId = "dev.extframework.extensions"
+            artifactId = "extframework-ext-test"
         }
     }
 }

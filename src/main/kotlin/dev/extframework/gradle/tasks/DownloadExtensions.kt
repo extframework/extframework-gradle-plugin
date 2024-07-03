@@ -1,33 +1,29 @@
-package net.yakclient.gradle.tasks
+package dev.extframework.gradle.tasks
 
 import com.durganmcbroom.artifact.resolver.Artifact
 import com.durganmcbroom.artifact.resolver.ResolutionContext
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactRequest
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
 import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.resources.ResourceAlgorithm
-import net.yakclient.archives.ArchiveReference
-import net.yakclient.archives.Archives
-import net.yakclient.boot.archive.ArchiveGraph
-import net.yakclient.boot.dependency.DependencyTypeContainer
-import net.yakclient.boot.maven.MavenResolverProvider
-import net.yakclient.common.util.copyTo
-import net.yakclient.common.util.make
-import net.yakclient.common.util.resolve
-import net.yakclient.components.extloader.api.extension.ExtensionPartition
-import net.yakclient.components.extloader.extension.artifact.ExtensionArtifactMetadata
-import net.yakclient.components.extloader.extension.artifact.ExtensionRepositoryFactory
-import net.yakclient.gradle.YakClientExtension
-import net.yakclient.gradle.write
+import dev.extframework.archives.ArchiveReference
+import dev.extframework.archives.Archives
+import dev.extframework.boot.archive.ArchiveGraph
+import dev.extframework.boot.dependency.DependencyTypeContainer
+import dev.extframework.boot.maven.MavenResolverProvider
+import dev.extframework.common.util.copyTo
+import dev.extframework.common.util.make
+import dev.extframework.common.util.resolve
+import dev.extframework.components.extloader.api.extension.ExtensionPartition
+import dev.extframework.components.extloader.extension.artifact.ExtensionArtifactMetadata
+import dev.extframework.components.extloader.extension.artifact.ExtensionRepositoryFactory
+import dev.extframework.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.provider.ListProperty
-import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
 import java.net.URI
@@ -81,7 +77,7 @@ abstract class DownloadExtensions : DefaultTask() {
     fun download() {
         dependencies.get().forEach { dependency ->
             val dependencyType = DependencyTypeContainer(
-                ArchiveGraph(Files.createTempDirectory("yak-gradle-m2"))
+                ArchiveGraph(Files.createTempDirectory("extframework-m2"))
             )
             dependencyType.register("simple-maven", MavenResolverProvider())
 

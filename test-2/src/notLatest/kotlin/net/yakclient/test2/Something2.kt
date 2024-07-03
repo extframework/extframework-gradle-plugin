@@ -1,4 +1,4 @@
-package net.yakclient.test2
+package dev.extframework.test2
 
 class Something2 {
 }

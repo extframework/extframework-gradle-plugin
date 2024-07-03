@@ -1,13 +1,11 @@
 
-rootProject.name = "yakclient-gradle"
+rootProject.name = "extframework-gradle-plugin"
 
 pluginManagement {
     repositories {
-        mavenLocal()
-        mavenCentral()
+        maven {
+            url = uri("https://maven.extframework.dev/releases")
+        }
         gradlePluginPortal()
-    }
-    plugins {
-        id("org.jetbrains.dokka") version "1.9.10"
     }
 }

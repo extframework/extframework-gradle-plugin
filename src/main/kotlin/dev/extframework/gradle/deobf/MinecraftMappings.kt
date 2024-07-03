@@ -1,9 +1,9 @@
-package net.yakclient.gradle.deobf
+package dev.extframework.gradle.deobf
 
-import net.yakclient.archive.mapper.MappingsProvider
-import net.yakclient.components.extloader.extension.mapping.MojangExtensionMappingProvider
-import net.yakclient.gradle.fabric.FabricMappingProvider
-import net.yakclient.gradle.fabric.RawFabricMappingProvider
+import dev.extframework.archive.mapper.MappingsProvider
+import dev.extframework.components.extloader.extension.mapping.MojangExtensionMappingProvider
+import dev.extframework.gradle.fabric.FabricMappingProvider
+import dev.extframework.gradle.fabric.RawFabricMappingProvider
 import java.nio.file.Path
 
 object MinecraftMappings {

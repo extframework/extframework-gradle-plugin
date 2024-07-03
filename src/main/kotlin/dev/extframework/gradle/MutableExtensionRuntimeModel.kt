@@ -1,4 +1,4 @@
-package net.yakclient.gradle
+package dev.extframework.gradle
 
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
 import org.gradle.api.Action
@@ -82,9 +82,9 @@ interface PartitionRepositoryScope {
         )
     }
 
-    fun yakclient() {
+    fun extframework() {
         // TODO change when we get out of snapshot
-        maven("http://maven.yakclient.net/snapshots")
+        maven("https://maven.extframework.dev/snapshots")
     }
 }
 

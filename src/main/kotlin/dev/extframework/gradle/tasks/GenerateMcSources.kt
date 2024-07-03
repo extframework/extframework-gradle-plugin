@@ -1,8 +1,8 @@
-package net.yakclient.gradle.tasks
+package dev.extframework.gradle.tasks
 
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.YakClientExtension
-import net.yakclient.gradle.mavenLocal
+import dev.extframework.common.util.resolve
+import dev.extframework.gradle.ExtFrameworkExtension
+import dev.extframework.gradle.mavenLocal
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -40,12 +40,12 @@ abstract class GenerateMcSources : DefaultTask() {
 
     @TaskAction
     fun generateSources() {
-        val yakclient = project.extensions.getByName("yakclient") as YakClientExtension
+        val extframework = project.extensions.getByName("extension") as ExtFrameworkExtension
         setupMinecraft(
             minecraftVersion.orNull
                 ?: throw IllegalArgumentException("Minecraft version for minecraft source generation not set! This task name was: '${this.name}'."),
             basePath,
-            yakclient.mappingProviders.findByName(mappingProvider.get()) ?: throw java.lang.IllegalArgumentException("Unknown mapping provider: '${mappingProvider.get()}'"),
+            extframework.mappingProviders.findByName(mappingProvider.get()) ?: throw java.lang.IllegalArgumentException("Unknown mapping provider: '${mappingProvider.get()}'"),
             mappingProvider.get()
         )
     }

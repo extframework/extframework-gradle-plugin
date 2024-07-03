@@ -1,13 +1,13 @@
-package net.yakclient.gradle.tasks
+package dev.extframework.gradle.tasks
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
-import net.yakclient.archive.mapper.findShortest
-import net.yakclient.archive.mapper.newMappingsGraph
-import net.yakclient.archive.mapper.transform.transformArchive
-import net.yakclient.archives.Archives
-import net.yakclient.gradle.YakClientExtension
-import net.yakclient.gradle.write
+import dev.extframework.archive.mapper.findShortest
+import dev.extframework.archive.mapper.newMappingsGraph
+import dev.extframework.archive.mapper.transform.transformArchive
+import dev.extframework.archives.Archives
+import dev.extframework.gradle.ExtFrameworkExtension
+import dev.extframework.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -38,9 +38,9 @@ abstract class RemapTask : DefaultTask() {
 
     @TaskAction
     fun remap() {
-        val yakClientExtension: YakClientExtension = project.extensions.getByType(YakClientExtension::class.java)
+        val extension: ExtFrameworkExtension = project.extensions.getByType(ExtFrameworkExtension::class.java)
 
-        val graph = newMappingsGraph(yakClientExtension.mappingProviders.map { it.provider })
+        val graph = newMappingsGraph(extension.mappingProviders.map { it.provider })
         val mappingsProvider = graph.findShortest(
             sourceNamespace.get(),
             targetNamespace.get()

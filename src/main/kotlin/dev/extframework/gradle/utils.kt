@@ -1,7 +1,7 @@
-package net.yakclient.gradle
+package dev.extframework.gradle
 
 import com.durganmcbroom.resources.openStream
-import net.yakclient.archives.ArchiveReference
+import dev.extframework.archives.ArchiveReference
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty

@@ -1,17 +1,17 @@
-package net.yakclient.gradle.fabric
+package dev.extframework.gradle.fabric
 
 import com.durganmcbroom.resources.Resource
 import com.durganmcbroom.resources.openStream
 import com.durganmcbroom.resources.toResource
-import net.yakclient.archive.mapper.ArchiveMapping
-import net.yakclient.archive.mapper.MappingsProvider
-import net.yakclient.archive.mapper.parsers.tiny.TinyV1MappingsParser
-import net.yakclient.boot.store.DataAccess
-import net.yakclient.boot.store.DataStore
-import net.yakclient.boot.store.DelegatingDataStore
-import net.yakclient.common.util.copyTo
-import net.yakclient.common.util.resolve
-import net.yakclient.components.extloader.extension.mapping.MojangExtensionMappingProvider
+import dev.extframework.archive.mapper.ArchiveMapping
+import dev.extframework.archive.mapper.MappingsProvider
+import dev.extframework.archive.mapper.parsers.tiny.TinyV1MappingsParser
+import dev.extframework.boot.store.DataAccess
+import dev.extframework.boot.store.DataStore
+import dev.extframework.boot.store.DelegatingDataStore
+import dev.extframework.common.util.copyTo
+import dev.extframework.common.util.resolve
+import dev.extframework.components.extloader.extension.mapping.MojangExtensionMappingProvider
 import java.net.URL
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists

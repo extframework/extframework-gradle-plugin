@@ -1,4 +1,4 @@
-package net.yakclient.gradle.tasks
+package dev.extframework.gradle.tasks
 
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenDefaultLayout
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalLayout
@@ -6,12 +6,12 @@ import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.resources.ResourceAlgorithm
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
-import net.yakclient.common.util.copyTo
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.*
-import net.yakclient.gradle.CLIENT_MAIN_CLASS
-import net.yakclient.gradle.CLIENT_VERSION
-import net.yakclient.gradle.YAKCLIENT_DIR
+import dev.extframework.common.util.copyTo
+import dev.extframework.common.util.resolve
+import dev.extframework.gradle.*
+import dev.extframework.gradle.CLIENT_MAIN_CLASS
+import dev.extframework.gradle.CLIENT_VERSION
+import dev.extframework.gradle.HOME_DIR
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.provider.Property
@@ -63,7 +63,7 @@ data class ExtLoaderArgs(
 )
 
 fun preDownloadClient(version: String): Path {
-    return YAKCLIENT_DIR resolve "client-$version.jar"
+    return HOME_DIR resolve "client-$version.jar"
 }
 
 fun downloadClient(version: String, devMode: Boolean = false) {
@@ -72,7 +72,7 @@ fun downloadClient(version: String, devMode: Boolean = false) {
     if (Files.exists(outputPath)) return
     val layout = if (devMode)
         SimpleMavenLocalLayout()
-    else SimpleMavenDefaultLayout("http://maven.yakclient.net/snapshots", ResourceAlgorithm.SHA1,
+    else SimpleMavenDefaultLayout("https://maven.extframework.dev/snapshots", ResourceAlgorithm.SHA1,
         releasesEnabled = true,
         snapshotsEnabled = true,
         requireResourceVerification = true
@@ -80,7 +80,7 @@ fun downloadClient(version: String, devMode: Boolean = false) {
 
     launch {
         val resource = layout.resourceOf(
-            "net.yakclient",
+            "dev.extframework",
             "client",
             version,
             "all",
@@ -91,9 +91,9 @@ fun downloadClient(version: String, devMode: Boolean = false) {
     }
 }
 
-fun preCacheExtension(project: Project, yak: YakClientExtension): Pair<ExtDescriptorArg, ExtRepoArg> {
+fun preCacheExtension(project: Project, ext: ExtFrameworkExtension): Pair<ExtDescriptorArg, ExtRepoArg> {
     val repositoryDir = project.mavenLocal()
-    val erm = yak.erm.get()
+    val erm = ext.erm.get()
     val descriptor = ExtDescriptorArg(erm.groupId.get(), erm.name.get(), erm.version.get())
 
     return descriptor to ExtRepoArg(repositoryDir.toString(), "local")
@@ -110,7 +110,7 @@ abstract class LaunchMinecraft : JavaExec() {
     abstract val targetNamespace: Property<String>
 }
 
-internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTask: Task) =
+internal fun Project.registerLaunchTask(extframework: ExtFrameworkExtension, publishTask: Task) =
     tasks.register("launch", LaunchMinecraft::class.java) { exec ->
         val devMode = (findProperty("devMode") as? String)?.toBoolean() ?: false
         val environmentType = (findProperty("forceEnv") as? String) ?: "extension-dev"
@@ -119,7 +119,7 @@ internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTa
         exec.dependsOn(publishTask)
 
         val path = preDownloadClient(CLIENT_VERSION)
-        val (desc, repo) = preCacheExtension(this, yakclient)
+        val (desc, repo) = preCacheExtension(this, extframework)
 
         exec.classpath(path)
         exec.mainClass.set(CLIENT_MAIN_CLASS)
@@ -130,7 +130,7 @@ internal fun Project.registerLaunchTask(yakclient: YakClientExtension, publishTa
         }
         exec.args = args
 
-        val wd = (YAKCLIENT_DIR resolve "wd").toAbsolutePath().toFile()
+        val wd = (HOME_DIR resolve "wd").toAbsolutePath().toFile()
         wd.mkdirs()
         exec.workingDir = wd
 

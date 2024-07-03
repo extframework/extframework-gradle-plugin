@@ -1,8 +1,8 @@
-package net.yakclient.test
+package dev.extframework.test
 
-import net.yakclient.client.api.Extension
-import net.yakclient.extensions.example.tweaker.TweakerEntry
-import net.yakclient.extensions.test2.MyExtension2
+import dev.extframework.client.api.Extension
+import dev.extframework.extensions.example.tweaker.TweakerEntry
+import dev.extframework.extensions.test2.MyExtension2
 
 class MyExtension : Extension() {
     override fun cleanup() {

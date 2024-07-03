@@ -1,7 +1,7 @@
-package net.yakclient.test
+package dev.extframework.test
 
-import net.yakclient.client.api.annotation.Mixin
-import net.yakclient.client.api.annotation.SourceInjection
+import dev.extframework.client.api.annotation.Mixin
+import dev.extframework.client.api.annotation.SourceInjection
 import javax.annotation.processing.AbstractProcessor
 
 class Test {

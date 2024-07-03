@@ -1,8 +1,8 @@
-package net.yakclient.gradle
+package dev.extframework.gradle
 
 import groovy.lang.Closure
-import net.yakclient.gradle.deobf.MinecraftDeobfuscator
-import net.yakclient.gradle.tasks.GenerateMcSources
+import dev.extframework.gradle.deobf.MinecraftDeobfuscator
+import dev.extframework.gradle.tasks.GenerateMcSources
 import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.Project
@@ -19,12 +19,12 @@ abstract class PartitionHandler<T : PartitionDependencyHandler>(
     // A shorthand for executing configurations just as the configuration block of this partition ends.
     private val configure: (() -> Unit) -> Unit
 ) : Named {
-    protected val yakclient: YakClientExtension = project.extensions.getByType(YakClientExtension::class.java)
+    protected val extframework: ExtFrameworkExtension = project.extensions.getByType(ExtFrameworkExtension::class.java)
 
     abstract val dependencies: T
 
     init {
-        project.dependencies.add(sourceSet.implementationConfigurationName, yakclient.downloadExtensions.map {
+        project.dependencies.add(sourceSet.implementationConfigurationName, extframework.downloadExtensions.map {
             it.output.asFileTree
         })
     }
@@ -45,16 +45,10 @@ class MainPartitionHandler(
     partition: MutableExtensionPartition,
     sourceSet: SourceSet, configure: (() -> Unit) -> Unit
 ) : PartitionHandler<PartitionDependencyHandler>(project, partition, sourceSet, configure) {
-    init {
-//        project.dependencies.add(sourceSet.implementationConfigurationName, yakclient.downloadFabricMods.flatMap { t ->
-//            t.output.map { it[partition.name.get()]!! }
-//        })
-    }
-
     override val dependencies = PartitionDependencyHandler(
         project.dependencies, sourceSet
     ) {
-        YakClientExtension.ermDependency(it)
+        ExtFrameworkExtension.ermDependency(it)
             ?.toMutableMap()
             ?.let(partition.dependencies::add)
     }
@@ -76,7 +70,7 @@ class TweakerPartitionHandler(
     override val dependencies = PartitionDependencyHandler(
         project.dependencies, sourceSet
     ) {
-        YakClientExtension.ermDependency(it)
+        ExtFrameworkExtension.ermDependency(it)
             ?.toMutableMap()
             ?.let(partition.dependencies::add)
     }
@@ -94,7 +88,7 @@ class VersionedPartitionHandler(
     project: Project,
     partition: MutableExtensionPartition,
     sourceSet: SourceSet,
-    val yakClientExtension: YakClientExtension, configure: (() -> Unit) -> Unit,
+    val extFrameworkExtension: ExtFrameworkExtension, configure: (() -> Unit) -> Unit,
 ) : PartitionHandler<VersionPartitionDependencyHandler>(project, partition, sourceSet, configure) {
     override val dependencies: VersionPartitionDependencyHandler by lazy {
         VersionPartitionDependencyHandler(
@@ -103,7 +97,7 @@ class VersionedPartitionHandler(
             project,
             mappings.name,
         ) {
-            YakClientExtension.ermDependency(it)
+            ExtFrameworkExtension.ermDependency(it)
                 ?.toMutableMap()
                 ?.let(partition.dependencies::add)
         }
@@ -111,7 +105,7 @@ class VersionedPartitionHandler(
 
     var mappings: MinecraftDeobfuscator
         get() {
-            return yakClientExtension.mappingProviders.find {
+            return extFrameworkExtension.mappingProviders.find {
                 it.deobfuscatedNamespace == partition.options.getting("mappingNS").orNull
             } ?: throw Exception("Please set your mappings provider in partition: '${sourceSet.name}'")
         }

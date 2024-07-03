@@ -1,7 +1,7 @@
-package net.yakclient.gradle.fabric
+package dev.extframework.gradle.fabric
 
-import net.yakclient.archive.mapper.*
-import net.yakclient.common.util.LazyMap
+import dev.extframework.archive.mapper.*
+import dev.extframework.common.util.LazyMap
 
 // TODO make this a utility so its not shared between fabric-ext and this
 

@@ -1,4 +1,4 @@
-package net.yakclient.gradle.fabric.tasks
+package dev.extframework.gradle.fabric.tasks
 
 import com.durganmcbroom.artifact.resolver.Artifact
 import com.durganmcbroom.artifact.resolver.createContext
@@ -9,13 +9,13 @@ import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySet
 import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.resources.Resource
 import com.durganmcbroom.resources.ResourceAlgorithm
-import net.yakclient.archives.Archives
-import net.yakclient.common.util.copyTo
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.MutableExtensionPartition
-import net.yakclient.gradle.fabric.FabricMappingProvider.Companion.INTERMEDIARY_NAMESPACE
-import net.yakclient.gradle.tasks.RemapTask
-import net.yakclient.gradle.write
+import dev.extframework.archives.Archives
+import dev.extframework.common.util.copyTo
+import dev.extframework.common.util.resolve
+import dev.extframework.gradle.MutableExtensionPartition
+import dev.extframework.gradle.fabric.FabricMappingProvider.Companion.INTERMEDIARY_NAMESPACE
+import dev.extframework.gradle.tasks.RemapTask
+import dev.extframework.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository

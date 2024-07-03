@@ -1,4 +1,4 @@
-package net.yakclient.extensions.test2
+package dev.extframework.extensions.test2
 
 
 fun libraryMethod() {

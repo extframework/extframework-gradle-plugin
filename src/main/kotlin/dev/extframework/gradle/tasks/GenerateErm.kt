@@ -1,4 +1,4 @@
-package net.yakclient.gradle.tasks
+package dev.extframework.gradle.tasks
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import net.yakclient.common.util.make
-import net.yakclient.common.util.resolve
-import net.yakclient.gradle.YakClientExtension
+import dev.extframework.common.util.make
+import dev.extframework.common.util.resolve
+import dev.extframework.gradle.ExtFrameworkExtension
 import org.gradle.api.*
 import org.gradle.api.provider.*
 import org.gradle.api.tasks.OutputFile
@@ -16,8 +16,8 @@ import org.gradle.api.tasks.TaskAction
 import java.io.File
 
 abstract class GenerateErm : DefaultTask() {
-    private val yakclient
-        get() = project.extensions.getByName("yakclient") as YakClientExtension
+    private val extframework
+        get() = project.extensions.getByName("extension") as ExtFrameworkExtension
 
     @get:OutputFile
     val ermPath: File =
@@ -35,7 +35,7 @@ abstract class GenerateErm : DefaultTask() {
                     .addSerializer(ListProperty::class.java, ListPropertySerializer())
             )
         val ermAsBytes =
-            mapper.writeValueAsBytes(yakclient.erm.get())
+            mapper.writeValueAsBytes(extframework.erm.get())
 
         ermPath .toPath().make()
         ermPath.writeBytes(ermAsBytes)

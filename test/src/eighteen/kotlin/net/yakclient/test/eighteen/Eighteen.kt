@@ -1,4 +1,4 @@
-package net.yakclient.test.eighteen
+package dev.extframework.test.eighteen
 
 class Eighteen {
     fun eighteenStuff() {

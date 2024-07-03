@@ -1,9 +1,9 @@
-package net.yakclient.extensions.example.tweaker
+package dev.extframework.extensions.example.tweaker
 
 import com.durganmcbroom.jobs.Job
 import com.durganmcbroom.jobs.SuccessfulJob
-import net.yakclient.components.extloader.api.environment.ExtLoaderEnvironment
-import net.yakclient.components.extloader.api.tweaker.EnvironmentTweaker
+import dev.extframework.components.extloader.api.environment.ExtLoaderEnvironment
+import dev.extframework.components.extloader.api.tweaker.EnvironmentTweaker
 
 
 public class TweakerEntry : EnvironmentTweaker {
