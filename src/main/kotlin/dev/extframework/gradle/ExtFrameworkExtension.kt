@@ -1,21 +1,22 @@
 package dev.extframework.gradle
 
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
-import dev.extframework.components.extloader.extension.partition.MainPartitionLoader
-import dev.extframework.components.extloader.extension.partition.TweakerPartitionLoader
-import dev.extframework.components.extloader.extension.partition.VersionedPartitionLoader
 import dev.extframework.gradle.deobf.MinecraftDeobfuscator
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
 import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.DownloadExtensions
+import dev.extframework.gradle.tasks.GeneratePrm
+import dev.extframework.internal.api.TOOLING_API_VERSION
+import dev.extframework.internal.api.extension.ExtensionParent
+import dev.extframework.internal.api.extension.PartitionModelReference
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
-import java.lang.IllegalArgumentException
+import org.gradle.jvm.tasks.Jar
 
 abstract class ExtFrameworkExtension(
     internal val project: Project
@@ -28,7 +29,26 @@ abstract class ExtFrameworkExtension(
 
             add(handler)
             eagerModel {
-                it.partitions.add(handler.partition)
+                it.partitions.add(
+                    PartitionModelReference(handler.partition.type, handler.partition.name)
+                )
+            }
+
+            project.tasks.maybeCreate(
+                handler.sourceSet.jarTaskName,
+                Jar::class.java
+            )
+            project.tasks
+                .withType(Jar::class.java)
+                .named(handler.sourceSet.jarTaskName).configure {
+                    it.from(handler.sourceSet.output)
+                    it.archiveClassifier.set(handler.name)
+                }
+            project.tasks.register(
+                handler.generatePrmTaskName,
+                GeneratePrm::class.java
+            ) {
+                it.partitionName.set(handler.name)
             }
 
             action.execute(handler)
@@ -38,10 +58,9 @@ abstract class ExtFrameworkExtension(
         }
 
         override fun main(action: Action<MainPartitionHandler>) {
-            val partition = MutableExtensionPartition(
-                MainPartitionLoader.TYPE,
-                project.property { "main" },
-                project.property { "META-INF/partitions/main" },
+            val partition = MutablePartitionRuntimeModel(
+                "main",
+                "main",
                 project.newListProperty(),
                 project.newSetProperty(),
                 project.newMapProperty()
@@ -58,10 +77,9 @@ abstract class ExtFrameworkExtension(
         }
 
         override fun tweaker(action: Action<TweakerPartitionHandler>) {
-            val partition = MutableExtensionPartition(
-                TweakerPartitionLoader.TYPE,
-                project.property { "tweaker" },
-                project.property { "META-INF/partitions/tweaker" },
+            val partition = MutablePartitionRuntimeModel(
+                "tweaker",
+                "tweaker",
                 project.newListProperty(),
                 project.newSetProperty(),
                 project.newMapProperty()
@@ -81,17 +99,19 @@ abstract class ExtFrameworkExtension(
         }
 
         override fun version(name: String, action: Action<VersionedPartitionHandler>) {
-            val partition = MutableExtensionPartition(
-                VersionedPartitionLoader.TYPE,
-                project.property { name },
-                project.property { "META-INF/partitions/$name" },
+            val partition = MutablePartitionRuntimeModel(
+                "target",
+                name,
                 project.newListProperty(),
                 project.newSetProperty(),
                 project.newMapProperty()
             )
 
             val sourceSet = sourceSets.create(name)
-            project.dependencies.add(sourceSet.implementationConfigurationName, sourceSets.getByName("main").output)
+            project.dependencies.add(
+                sourceSet.implementationConfigurationName,
+                sourceSets.getByName("main").output
+            )
             project.dependencies.add(sourceSet.implementationConfigurationName, downloadExtensions.map {
                 it.output
             })
@@ -122,12 +142,14 @@ abstract class ExtFrameworkExtension(
             )
         }
     }
+
     internal val sourceSets: SourceSetContainer = project.extensions.getByType(SourceSetContainer::class.java)
 
     internal val downloadExtensions = project.tasks.register("downloadExtensions", DownloadExtensions::class.java)
 
     val erm: Property<MutableExtensionRuntimeModel> = project.property {
         MutableExtensionRuntimeModel(
+            TOOLING_API_VERSION,
             project.property {
                 project.group as String
             },
@@ -136,9 +158,6 @@ abstract class ExtFrameworkExtension(
             },
             project.property {
                 project.version as String
-            },
-            project.property {
-                "jar"
             },
             project.newListProperty(),
             project.newSetProperty(),
@@ -157,6 +176,9 @@ abstract class ExtFrameworkExtension(
                 MinecraftMappings.fabric
             )
         )
+        extensions {
+            it.require("dev.extframework.extension:core-mc:1.0.1-SNAPSHOT")
+        }
     }
 
     fun partitions(action: Action<NamedDomainPartitionContainer>) {
@@ -167,7 +189,12 @@ abstract class ExtFrameworkExtension(
         action.execute(object : ExtensionDependencyHandler {
             override fun require(notation: String) {
                 eagerModel {
-                    it.extensions.add(ermDependency(notation) ?: throw IllegalArgumentException("Invalid notation: '$notation'. Group, artifact, and version id's must all be present and non-blank!"))
+                    val descriptor = SimpleMavenDescriptor.parseDescription(notation)
+                        ?: throw IllegalArgumentException("Invalid notation: '$notation'. Group, artifact, and version id's must all be present and non-blank!")
+
+                    it.parents.add(
+                        ExtensionParent(descriptor.group, descriptor.artifact, descriptor.version)
+                    )
                 }
 
                 downloadExtensions.configure {
@@ -187,8 +214,9 @@ abstract class ExtFrameworkExtension(
                 }
 
                 model {
-                    it.partitions.get()
-                        .filter { it.type == MainPartitionLoader.TYPE || it.type == VersionedPartitionLoader.TYPE }
+                    partitions
+                        .map(PartitionHandler<*>::partition)
+                        .filter { it.type == "main" || it.type == "target" }
                         .forEach { p ->
                             p.dependencies.add(
                                 mutableMapOf(

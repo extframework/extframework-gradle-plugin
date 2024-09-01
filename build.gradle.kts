@@ -1,18 +1,20 @@
 import dev.extframework.gradle.common.*
 import dev.extframework.gradle.common.dm.artifactResolver
+import dev.extframework.gradle.common.dm.jobs
 
 plugins {
     `java-gradle-plugin`
     kotlin("jvm") version "1.9.21"
 
     id("com.gradle.plugin-publish") version "1.2.1"
-    id("dev.extframework.common") version "1.0.7"
+    id("dev.extframework.common") version "1.0.17"
 }
 
-group = "dev.extframework"
-version = "1.1.4"
+group = "dev.extframework.mc"
+version = "1.2"
 
 repositories {
+    mavenLocal()
     mavenCentral()
     extFramework()
 }
@@ -27,9 +29,11 @@ dependencies {
     launcherMetaHandler()
     archives()
     commonUtil()
-    extLoader()
     boot()
+    extLoader()
+    toolingApi()
     objectContainer()
+    jobs()
 
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
@@ -46,7 +50,7 @@ gradlePlugin {
 
     plugins {
         create("extframework") {
-            id = "dev.extframework"
+            id = "dev.extframework.mc"
             implementationClass = "dev.extframework.gradle.ExtFrameworkPlugin"
             displayName = "YakClient"
             description = "YakClient Gradle Plugin"
@@ -58,7 +62,7 @@ common {
     defaultJavaSettings()
     publishing {
         repositories {
-            extFramework(credentials = propertyCredentialProvider)
+            extFramework(credentials = propertyCredentialProvider, type = RepositoryType.RELEASES)
         }
     }
 }

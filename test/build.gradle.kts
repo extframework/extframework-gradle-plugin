@@ -1,12 +1,20 @@
+import dev.extframework.gradle.common.boot
+import dev.extframework.gradle.common.coreApi
+import dev.extframework.gradle.common.dm.artifactResolver
+import dev.extframework.gradle.common.dm.jobs
+import dev.extframework.gradle.common.extLoader
+import dev.extframework.gradle.common.toolingApi
 import dev.extframework.gradle.extframework
+import dev.extframework.gradle.withExtension
 
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework") version "1.1.4"
+    id("dev.extframework.mc") version "1.2"
+    id("dev.extframework.common") version "1.0.16"
 }
 
-group = "dev.extframework"
+group = "dev.extframework.extensions"
 version = "1.0-SNAPSHOT"
 
 tasks.wrapper {
@@ -16,6 +24,7 @@ tasks.wrapper {
 tasks.launch {
     targetNamespace.set("mojang:deobfuscated")
     jvmArgs = listOf("-XstartOnFirstThread")
+    mcVersion.set("1.21")
 }
 
 repositories {
@@ -24,25 +33,11 @@ repositories {
     extframework()
 }
 
-dependencies {
-    implementation("dev.extframework:client-api:1.2-SNAPSHOT")
-}
-
 extension {
     model {
         groupId.set("dev.extframework.extensions")
         name.set("extframework-ext-test")
         version.set("1.0-SNAPSHOT")
-        extensionRepositories {
-            mavenLocal()
-        }
-        partitions {
-            repositories {
-                extframework()
-                mavenLocal()
-                mavenCentral()
-            }
-        }
     }
 
     extensions {
@@ -52,17 +47,18 @@ extension {
     partitions {
         main {
             extensionClass = "dev.extframework.test.MyExtension"
+            dependencies {
+                coreApi()
+            }
         }
 
         tweaker {
             tweakerClass = "dev.extframework.extensions.example.tweaker.TweakerEntry"
             dependencies {
-                implementation("dev.extframework.components:ext-loader:1.1.1-SNAPSHOT")
-                implementation("dev.extframework:boot:2.1.1-SNAPSHOT")
-                implementation("dev.extframework:archives:1.2-SNAPSHOT")
-                implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
-                implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
-                implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
+                boot()
+                toolingApi()
+                jobs()
+                artifactResolver(maven = true)
             }
         }
     }
@@ -71,12 +67,7 @@ extension {
 publishing {
     publications {
         create<MavenPublication>("prod") {
-            artifact(tasks.jar)
-            artifact(tasks.generateErm) {
-                classifier = "erm"
-            }
-
-            groupId = "dev.extframework.extensions"
+            withExtension(project)
             artifactId = "extframework-ext-test"
         }
     }

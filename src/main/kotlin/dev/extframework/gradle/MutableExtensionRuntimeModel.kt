@@ -1,6 +1,11 @@
 package dev.extframework.gradle
 
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
+import dev.extframework.internal.api.extension.ExtensionParent
+import dev.extframework.internal.api.extension.ExtensionRepository
+import dev.extframework.internal.api.extension.ExtensionRuntimeModel
+import dev.extframework.internal.api.extension.PartitionModelReference
+import dev.extframework.internal.api.extension.artifact.ExtensionDescriptor
 import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
@@ -9,43 +14,71 @@ import org.gradle.api.provider.SetProperty
 import java.io.Serializable
 
 
+
 data class MutableExtensionRuntimeModel(
+    val apiVersion: Int,
     val groupId: Property<String>,
     val name: Property<String>,
     val version: Property<String>,
 
-    val packagingType: Property<String>, // Jar, War, Zip, etc...
+    val repositories: ListProperty<Map<String, String>>,
+    val parents: SetProperty<ExtensionParent>,
 
-    val extensionRepositories: ListProperty<Map<String, String>>,
-    val extensions: SetProperty<Map<String, String>>,
-
-    val partitions: SetProperty<MutableExtensionPartition>,
+    val partitions: SetProperty<PartitionModelReference>
 ) {
-    fun partitions(action: Action<MutableExtensionPartition>) {
+    fun partitions(action: Action<PartitionModelReference>) {
         (partitions.orNull ?: emptySet()).forEach { partition ->
             action.execute(partition)
         }
     }
 
-    fun extensionRepositories(action: Action<PartitionRepositoryScope>) {
-        val scope = object : PartitionRepositoryScope {
-            val repositories = mutableSetOf<MutableExtensionRepository>()
-            override fun add(repository: MutableExtensionRepository) {
-                repositories.add(repository)
-            }
-        }
-
-        action.execute(scope)
-        extensionRepositories.addAll(scope.repositories.map { it.settings })
-    }
+//    fun repositories(action: Action<PartitionRepositoryScope>) {
+//        val scope = object : PartitionRepositoryScope {
+//            val repositories = mutableSetOf<ExtensionRepository>()
+//            override fun add(repository: ExtensionRepository) {
+//                repositories.add(repository)
+//            }
+//        }
+//
+//        action.execute(scope)
+//        repositories.addAll(scope.repositories.map { it.settings })
+//    }
 }
 
+
+val ExtensionRuntimeModel.descriptor : ExtensionDescriptor
+    get() = ExtensionDescriptor.parseDescriptor("$groupId:$name:$version")
+
+data class MutablePartitionRuntimeModel(
+    val type: String,
+
+    val name: String,
+
+    val repositories: ListProperty<ExtensionRepository>,
+    val dependencies: SetProperty<Map<String, String>>,
+
+    val options: MapProperty<String, String>
+) {
+//    fun repositories(action: Action<PartitionRepositoryScope>) {
+//        val scope = object : PartitionRepositoryScope {
+//            val repositories = mutableSetOf<ExtensionRepository>()
+//            override fun add(repository: ExtensionRepository) {
+//                repositories.add(repository)
+//            }
+//        }
+//
+//        action.execute(scope)
+//        repositories.addAll(scope.repositories)
+//    }
+}
+
+
 interface PartitionRepositoryScope {
-    fun add(repository: MutableExtensionRepository)
+    fun add(repository: ExtensionRepository)
 
     fun mavenLocal() {
         add(
-            MutableExtensionRepository(
+            ExtensionRepository(
                 "simple-maven",
                 mutableMapOf(
                     "location" to mavenLocal,
@@ -57,7 +90,7 @@ interface PartitionRepositoryScope {
 
     fun mavenCentral() {
         add(
-            MutableExtensionRepository(
+            ExtensionRepository(
                 "simple-maven",
                 mutableMapOf(
                     "location" to "https://repo.maven.apache.org/maven2/",
@@ -72,7 +105,7 @@ interface PartitionRepositoryScope {
         type: String = "default"
     ) {
         add(
-            MutableExtensionRepository(
+            ExtensionRepository(
                 "simple-maven",
                 mutableMapOf(
                     "location" to location,
@@ -85,31 +118,5 @@ interface PartitionRepositoryScope {
     fun extframework() {
         // TODO change when we get out of snapshot
         maven("https://maven.extframework.dev/snapshots")
-    }
-}
-
-data class MutableExtensionRepository(
-    val type: String,
-    val settings: MutableMap<String, String>
-)
-
-data class MutableExtensionPartition(
-    val type: String,
-    val name: Property<String>,
-    val path: Property<String>,
-    val repositories: ListProperty<MutableExtensionRepository>,
-    val dependencies: SetProperty<MutableMap<String, String>>,
-    val options: MapProperty<String, String>
-) : Serializable {
-    fun repositories(action: Action<PartitionRepositoryScope>) {
-        val scope = object : PartitionRepositoryScope {
-            val repositories = mutableSetOf<MutableExtensionRepository>()
-            override fun add(repository: MutableExtensionRepository) {
-                repositories.add(repository)
-            }
-        }
-
-        action.execute(scope)
-        repositories.addAll(scope.repositories)
     }
 }

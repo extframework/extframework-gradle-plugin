@@ -13,7 +13,7 @@ import org.gradle.jvm.tasks.Jar
 import java.net.URI
 import java.nio.file.Path
 
-internal const val CLIENT_VERSION = "1.1.2-SNAPSHOT"
+internal const val CLIENT_VERSION = "2.0-SNAPSHOT"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
 internal val HOME_DIR = Path.of(System.getProperty("user.home")) resolve ".extframework"
 
@@ -29,12 +29,6 @@ class ExtFrameworkPlugin : Plugin<Project> {
         project.tasks.named("jar", Jar::class.java) { jar ->
             jar.dependsOn(generateErm)
             jar.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
-
-            extframework.partitions.configureEach { partition ->
-                jar.from(partition.sourceSet.output) { copy ->
-                    copy.into(partition.partition.path)
-                }
-            }
         }
 
         project.registerLaunchTask(extframework, project.tasks.getByName("publishToMavenLocal"))

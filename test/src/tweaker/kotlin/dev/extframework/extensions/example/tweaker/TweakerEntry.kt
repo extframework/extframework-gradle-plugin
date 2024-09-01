@@ -2,8 +2,8 @@ package dev.extframework.extensions.example.tweaker
 
 import com.durganmcbroom.jobs.Job
 import com.durganmcbroom.jobs.SuccessfulJob
-import dev.extframework.components.extloader.api.environment.ExtLoaderEnvironment
-import dev.extframework.components.extloader.api.tweaker.EnvironmentTweaker
+import dev.extframework.internal.api.environment.ExtensionEnvironment
+import dev.extframework.internal.api.tweaker.EnvironmentTweaker
 
 
 public class TweakerEntry : EnvironmentTweaker {
@@ -12,7 +12,7 @@ public class TweakerEntry : EnvironmentTweaker {
             private set
     }
 
-    override fun tweak(environment: ExtLoaderEnvironment): Job<Unit> {
+    override fun tweak(environment: ExtensionEnvironment): Job<Unit> {
         println("Could have tweaked, but i choose not to.")
         tweaked = true
 

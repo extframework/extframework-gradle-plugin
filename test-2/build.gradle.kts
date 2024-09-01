@@ -1,11 +1,16 @@
-import dev.extframework.gradle.MutableExtensionRepository
+import dev.extframework.gradle.common.*
+import dev.extframework.gradle.common.dm.artifactResolver
+import dev.extframework.gradle.common.dm.jobs
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.extframework
+import dev.extframework.gradle.withExtension
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework") version "1.1.4"
+    id("dev.extframework.mc") version "1.2"
+    id("dev.extframework.common") version "1.0.16"
 }
 
 group = "dev.extframework"
@@ -14,7 +19,6 @@ version = "1.0-SNAPSHOT"
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"
 }
-
 tasks.launch {
     jvmArgs = listOf("-XstartOnFirstThread")
     targetNamespace.set("mojang:deobfuscated")
@@ -26,11 +30,14 @@ repositories {
     extframework()
 }
 
-dependencies {
-}
-
 tasks.jar {
     archiveBaseName.set("extframework-ext-test-2")
+}
+
+tasks.launch {
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+    mcVersion.set("1.20.1")
+    targetNamespace.set(MinecraftMappings.mojang.deobfuscatedNamespace)
 }
 
 extension {
@@ -38,39 +45,10 @@ extension {
         groupId.set("dev.extframework.extensions")
         name.set("extframework-ext-test-2")
         version.set("1.0-SNAPSHOT")
-        extensionRepositories {
+        repositories {
             mavenLocal()
         }
-        partitions {
-            repositories {
-                extframework()
-                mavenLocal()
-                mavenCentral()
-//                add(
-//                    MutableExtensionRepository(
-//                        "fabric-mod:curse-maven",
-//                        mutableMapOf(
-//                            "location" to "http://localhost:3000"
-//                        )
-//                    )
-//                )
-            }
-        }
     }
-
-//    extensions {
-//        fabricMod(
-//            name = "jei",
-//            projectId = "238222",
-//            fileId = "5101365"
-//        )
-//        fabricMod(
-//            name = "fabric-api",
-//            projectId = "306612",
-//            fileId = "5105683"
-//        )
-//    }
-
     partitions {
         version("latest") {
             supportVersions("1.20.1")
@@ -93,20 +71,21 @@ extension {
         main {
             extensionClass = "dev.extframework.extensions.test2.MyExtension2"
             dependencies {
-                implementation("dev.extframework:client-api:1.2-SNAPSHOT")
+                coreApi()
             }
         }
 
         tweaker {
+            model {
+                repositories {
+                    extframework()
+                    mavenLocal()
+                }
+            }
             tweakerClass = "dev.extframework.extensions.test2.TweakerTest2"
             dependencies {
-                implementation("dev.extframework.components:ext-loader:1.1.1-SNAPSHOT")
-                implementation("dev.extframework:boot:2.1.1-SNAPSHOT")
-
-                implementation("dev.extframework:archives:1.2-SNAPSHOT")
-                implementation("com.durganmcbroom:jobs:1.2-SNAPSHOT")
-                implementation("com.durganmcbroom:artifact-resolver-simple-maven:1.1-SNAPSHOT")
-                implementation("com.durganmcbroom:artifact-resolver:1.1-SNAPSHOT")
+                toolingApi()
+                jobs()
             }
         }
     }
@@ -115,10 +94,7 @@ extension {
 publishing {
     publications {
         create<MavenPublication>("prod") {
-            artifact(tasks.jar)
-            artifact(tasks.generateErm) {
-                classifier = "erm"
-            }
+            withExtension(project)
 
             groupId = "dev.extframework.extensions"
             artifactId = "extframework-ext-test-2"
@@ -130,8 +106,16 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.compileKotlin {
+    compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+}
+
+tasks.compileJava {
+    targetCompatibility = "21"
+}
+
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }

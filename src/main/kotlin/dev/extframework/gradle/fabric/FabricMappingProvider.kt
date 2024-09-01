@@ -11,7 +11,6 @@ import dev.extframework.boot.store.DataStore
 import dev.extframework.boot.store.DelegatingDataStore
 import dev.extframework.common.util.copyTo
 import dev.extframework.common.util.resolve
-import dev.extframework.components.extloader.extension.mapping.MojangExtensionMappingProvider
 import java.net.URL
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
@@ -21,12 +20,12 @@ import kotlin.io.path.exists
 class FabricMappingProvider(
     private val rawMappings: MappingsProvider
 ) : MappingsProvider {
-    override val namespaces: Set<String> = setOf(MojangExtensionMappingProvider.FAKE_TYPE, INTERMEDIARY_NAMESPACE)
+    override val namespaces: Set<String> = setOf("mojang:obfuscated", INTERMEDIARY_NAMESPACE)
 
     override fun forIdentifier(identifier: String): ArchiveMapping {
         val parse = rawMappings.forIdentifier(identifier)
         return parse.mapNamespaces(
-            "official" to MojangExtensionMappingProvider.FAKE_TYPE,
+            "official" to "mojang:obfuscated",
             "intermediary" to INTERMEDIARY_NAMESPACE
         )
     }

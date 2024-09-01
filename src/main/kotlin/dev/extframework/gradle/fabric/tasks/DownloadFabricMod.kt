@@ -12,7 +12,7 @@ import com.durganmcbroom.resources.ResourceAlgorithm
 import dev.extframework.archives.Archives
 import dev.extframework.common.util.copyTo
 import dev.extframework.common.util.resolve
-import dev.extframework.gradle.MutableExtensionPartition
+import dev.extframework.gradle.MutablePartitionRuntimeModel
 import dev.extframework.gradle.fabric.FabricMappingProvider.Companion.INTERMEDIARY_NAMESPACE
 import dev.extframework.gradle.tasks.RemapTask
 import dev.extframework.gradle.write
@@ -102,7 +102,7 @@ abstract class DownloadFabricMod : DefaultTask() {
 
                     setupModResource(artifactPath, "${descriptor.artifact}-${descriptor.version}.jar", resource)
 
-                    artifact.children.forEach {
+                    artifact.parents.forEach {
                         setupMod(it)
                     }
                 }
@@ -115,7 +115,7 @@ abstract class DownloadFabricMod : DefaultTask() {
 
 fun registerFabricModTask(
     project: Project,
-    partition: MutableExtensionPartition,
+    partition: MutablePartitionRuntimeModel,
     mappingTarget: String,
     version: String,
     output: Path
@@ -124,7 +124,7 @@ fun registerFabricModTask(
 
     return project.tasks.register(
         "remap${
-            partition.name.get().replaceFirstChar {
+            partition.name.replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase(
                     Locale.getDefault()
                 ) else it.toString()

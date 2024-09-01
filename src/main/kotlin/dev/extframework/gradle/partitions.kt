@@ -14,11 +14,13 @@ import org.gradle.util.internal.GUtil
 
 abstract class PartitionHandler<T : PartitionDependencyHandler>(
     project: Project,
-    val partition: MutableExtensionPartition,
+    val partition: MutablePartitionRuntimeModel,
     val sourceSet: SourceSet,
     // A shorthand for executing configurations just as the configuration block of this partition ends.
-    private val configure: (() -> Unit) -> Unit
+    private val configure: (() -> Unit) -> Unit,
+
 ) : Named {
+    val generatePrmTaskName: String = "generatePrm${sourceSet.name.replaceFirstChar { it.uppercase() }}"
     protected val extframework: ExtFrameworkExtension = project.extensions.getByType(ExtFrameworkExtension::class.java)
 
     abstract val dependencies: T
@@ -27,6 +29,10 @@ abstract class PartitionHandler<T : PartitionDependencyHandler>(
         project.dependencies.add(sourceSet.implementationConfigurationName, extframework.downloadExtensions.map {
             it.output.asFileTree
         })
+    }
+
+    open fun model(action: Action<MutablePartitionRuntimeModel>) {
+        action.execute(partition)
     }
 
     open fun dependencies(action: Action<T>) {
@@ -42,7 +48,7 @@ abstract class PartitionHandler<T : PartitionDependencyHandler>(
 
 class MainPartitionHandler(
     project: Project,
-    partition: MutableExtensionPartition,
+    partition: MutablePartitionRuntimeModel,
     sourceSet: SourceSet, configure: (() -> Unit) -> Unit
 ) : PartitionHandler<PartitionDependencyHandler>(project, partition, sourceSet, configure) {
     override val dependencies = PartitionDependencyHandler(
@@ -64,7 +70,7 @@ class MainPartitionHandler(
 
 class TweakerPartitionHandler(
     project: Project,
-    partition: MutableExtensionPartition,
+    partition: MutablePartitionRuntimeModel,
     sourceSet: SourceSet, configure: (() -> Unit) -> Unit
 ) : PartitionHandler<PartitionDependencyHandler>(project, partition, sourceSet, configure) {
     override val dependencies = PartitionDependencyHandler(
@@ -86,7 +92,7 @@ class TweakerPartitionHandler(
 
 class VersionedPartitionHandler(
     project: Project,
-    partition: MutableExtensionPartition,
+    partition: MutablePartitionRuntimeModel,
     sourceSet: SourceSet,
     val extFrameworkExtension: ExtFrameworkExtension, configure: (() -> Unit) -> Unit,
 ) : PartitionHandler<VersionPartitionDependencyHandler>(project, partition, sourceSet, configure) {
