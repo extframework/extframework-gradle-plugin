@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2"
-    id("dev.extframework.common") version "1.0.16"
+    id("dev.extframework.mc") version "1.2.1"
+    id("dev.extframework.common") version "1.0.22"
 }
 
 group = "dev.extframework"

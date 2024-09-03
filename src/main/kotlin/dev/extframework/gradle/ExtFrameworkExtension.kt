@@ -177,7 +177,7 @@ abstract class ExtFrameworkExtension(
             )
         )
         extensions {
-            it.require("dev.extframework.extension:core-mc:1.0.2-SNAPSHOT")
+            it.require("dev.extframework.extension:core-mc:$CORE_MC_VERSION")
         }
     }
 

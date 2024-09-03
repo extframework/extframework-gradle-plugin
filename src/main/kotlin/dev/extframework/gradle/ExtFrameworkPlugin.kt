@@ -13,8 +13,10 @@ import org.gradle.jvm.tasks.Jar
 import java.net.URI
 import java.nio.file.Path
 
-internal const val CLIENT_VERSION = "2.0-SNAPSHOT"
+internal const val CLIENT_VERSION = "2.1-SNAPSHOT"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
+internal const val CORE_MC_VERSION = "1.0.3-SNAPSHOT"
+
 internal val HOME_DIR = Path.of(System.getProperty("user.home")) resolve ".extframework"
 
 class ExtFrameworkPlugin : Plugin<Project> {
