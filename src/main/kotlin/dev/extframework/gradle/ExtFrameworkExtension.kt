@@ -132,7 +132,7 @@ abstract class ExtFrameworkExtension(
                 project,
                 partition,
                 handler.mappings.deobfuscatedNamespace,
-                handler.supportedVersions.first(),
+                handler.supportedVersions.firstOrNull() ?: throw IllegalArgumentException("Please set at least 1 supported version via the #supportVersions(version: String) method."),
                 taskDir.toPath()
             )
 
@@ -173,7 +173,8 @@ abstract class ExtFrameworkExtension(
         mappingProviders.addAll(
             listOf(
                 MinecraftMappings.mojang,
-                MinecraftMappings.fabric
+                MinecraftMappings.fabric,
+                MinecraftMappings.none
             )
         )
         extensions {

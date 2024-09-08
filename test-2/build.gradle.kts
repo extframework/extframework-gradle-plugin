@@ -51,11 +51,11 @@ extension {
     }
     partitions {
         version("latest") {
-            supportVersions("1.20.1")
+            supportVersions("1.21")
             mappings = MinecraftMappings.mojang
 
             dependencies {
-                minecraft("1.20.1")
+                minecraft("1.21")
             }
         }
 
