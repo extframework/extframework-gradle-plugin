@@ -13,7 +13,7 @@ import org.gradle.jvm.tasks.Jar
 import java.net.URI
 import java.nio.file.Path
 
-internal const val CLIENT_VERSION = "2.1-SNAPSHOT"
+internal const val CLIENT_VERSION = "2.1.1-SNAPSHOT"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
 internal const val CORE_MC_VERSION = "1.0.4-SNAPSHOT"
 
@@ -34,6 +34,10 @@ class ExtFrameworkPlugin : Plugin<Project> {
         }
 
         project.registerLaunchTask(extframework, project.tasks.getByName("publishToMavenLocal"))
+
+        project.tasks.register("genMcSources") {
+            it.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
+        }
     }
 }
 

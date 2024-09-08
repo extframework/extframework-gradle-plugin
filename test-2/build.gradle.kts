@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.1"
+    id("dev.extframework.mc") version "1.2.3"
     id("dev.extframework.common") version "1.0.22"
 }
 
@@ -19,6 +19,7 @@ version = "1.0-SNAPSHOT"
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"
 }
+
 tasks.launch {
     jvmArgs = listOf("-XstartOnFirstThread")
     targetNamespace.set("mojang:deobfuscated")
@@ -36,7 +37,7 @@ tasks.jar {
 
 tasks.launch {
     javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
-    mcVersion.set("1.20.1")
+    mcVersion.set("1.21")
     targetNamespace.set(MinecraftMappings.mojang.deobfuscatedNamespace)
 }
 
