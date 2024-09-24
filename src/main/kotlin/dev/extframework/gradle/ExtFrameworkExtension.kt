@@ -1,12 +1,12 @@
 package dev.extframework.gradle
 
+import GeneratePrm
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import dev.extframework.gradle.deobf.MinecraftDeobfuscator
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
 import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.DownloadExtensions
-import dev.extframework.gradle.tasks.GeneratePrm
 import dev.extframework.internal.api.TOOLING_API_VERSION
 import dev.extframework.internal.api.extension.ExtensionParent
 import dev.extframework.internal.api.extension.PartitionModelReference
@@ -165,6 +165,16 @@ abstract class ExtFrameworkExtension(
         )
     }
 
+    val metadata : Property<MutableExtensionMetadata> = project.property {
+        MutableExtensionMetadata(
+            project.property(),
+            project.newListProperty(),
+            project.property(),
+            project.property(),
+            project.newListProperty()
+        )
+    }
+
     val mappingProviders: NamedDomainObjectContainer<MinecraftDeobfuscator> =
         project.container(MinecraftDeobfuscator::class.java)
 
@@ -243,6 +253,21 @@ abstract class ExtFrameworkExtension(
             it.map { erm ->
                 action.execute(erm)
                 erm
+            }
+        }
+    }
+
+    fun metadata(action: Action<MutableExtensionMetadata>) {
+        project.afterEvaluate {
+            eagerMetadata(action)
+        }
+    }
+
+    internal fun eagerMetadata(action: Action<MutableExtensionMetadata>) {
+         metadata.update {
+            it.map { metadata ->
+                action.execute(metadata)
+                metadata
             }
         }
     }

@@ -2,13 +2,19 @@ package dev.extframework.gradle
 
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.deobf.MinecraftMappings
+import dev.extframework.gradle.publish.DefaultExtensionPublication
+import dev.extframework.gradle.publish.ExtensionPublication
+import dev.extframework.gradle.publish.ExtensionPublishTask
+import dev.extframework.gradle.tasks.BuildBundle
 import dev.extframework.gradle.tasks.GenerateMcSources
-import dev.extframework.gradle.tasks.registerGenerateErmTask
 import dev.extframework.gradle.tasks.registerLaunchTask
+import org.gradle.api.NamedDomainObjectFactory
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.plugins.JvmEcosystemPlugin
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.jvm.tasks.Jar
 import java.net.URI
 import java.nio.file.Path
@@ -26,14 +32,35 @@ class ExtFrameworkPlugin : Plugin<Project> {
         project.plugins.apply(JvmEcosystemPlugin::class.java)
         val extframework = project.extensions.create("extension", ExtFrameworkExtension::class.java, project)
 
-        val generateErm = project.registerGenerateErmTask()
+        val bundleTask = project.tasks.register("bundle", BuildBundle::class.java) {
+            it.dependsOn(project.provider {
+                extframework.partitions.flatMap { p ->
+                    listOf(
+                        project.tasks.getByName(p.sourceSet.jarTaskName),
+                        project.tasks.getByName(p.generatePrmTaskName)
+                    )
+                }
+            })
+        }
+
+        project.extensions.getByType(PublishingExtension::class.java).publications.registerFactory(
+            ExtensionPublication::class.java
+        ) { name ->
+            DefaultExtensionPublication(
+                name
+            )
+        }
+        val publishTask = project.tasks.register("publishExtension", ExtensionPublishTask::class.java) {
+            it.dependsOn(bundleTask)
+
+            it.bundle.set(bundleTask.map(BuildBundle::bundlePath))
+        }
 
         project.tasks.named("jar", Jar::class.java) { jar ->
-            jar.dependsOn(generateErm)
             jar.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
         }
 
-        project.registerLaunchTask(extframework, project.tasks.getByName("publishToMavenLocal"))
+        project.registerLaunchTask(extframework, publishTask.get())
 
         project.tasks.register("genMcSources") {
             it.dependsOn(project.tasks.withType(GenerateMcSources::class.java))

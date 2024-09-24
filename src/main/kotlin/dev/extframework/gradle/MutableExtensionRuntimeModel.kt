@@ -13,8 +13,6 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import java.io.Serializable
 
-
-
 data class MutableExtensionRuntimeModel(
     val apiVersion: Int,
     val groupId: Property<String>,
