@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.4"
+    id("dev.extframework.mc") version "1.2.5"
     id("dev.extframework.common") version "1.0.22"
 }
 
@@ -103,7 +103,7 @@ publishing {
     }
     repositories {
         maven {
-            url = uri("http://localhost:8000")
+            url = uri("http://127.0.0.1:6969")
             credentials {
                 password = "a"
             }

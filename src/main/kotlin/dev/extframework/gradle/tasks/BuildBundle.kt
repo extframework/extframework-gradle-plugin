@@ -1,10 +1,12 @@
 package dev.extframework.gradle.tasks
 
 import com.durganmcbroom.resources.Resource
+import com.durganmcbroom.resources.openStream
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import dev.extframework.archives.ArchiveReference
+import dev.extframework.common.util.readInputStream
 import dev.extframework.common.util.resolve
 import dev.extframework.extloader.util.emptyArchiveReference
 import dev.extframework.gradle.ExtFrameworkExtension
@@ -26,6 +28,8 @@ import org.gradle.api.tasks.TaskAction
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
+import java.security.MessageDigest
+import java.util.HexFormat
 
 abstract class BuildBundle : DefaultTask() {
     private val extframework
@@ -76,7 +80,7 @@ abstract class BuildBundle : DefaultTask() {
             project.tasks.named(partition.sourceSet.jarTaskName).get().outputs.files.forEach { file ->
                 archive.writer.put(
                     ArchiveReference.Entry(
-                        "partitions/${partition.name}.${file.extension}",
+                        "${partition.name}.${file.extension}",
                         Resource("<heap>") {
                             FileInputStream(file)
                         },
@@ -89,7 +93,7 @@ abstract class BuildBundle : DefaultTask() {
             project.tasks.named(partition.generatePrmTaskName).get().outputs.files.forEach { file ->
                 archive.writer.put(
                     ArchiveReference.Entry(
-                        "partitions/${partition.name}.${file.extension}",
+                        "${partition.name}.${file.extension}",
                         Resource("<heap>") {
                             FileInputStream(file)
                         },
@@ -100,7 +104,42 @@ abstract class BuildBundle : DefaultTask() {
             }
         }
 
+        val entries = archive.reader.entries().toMutableList()
+        listOf("md5", "sha1", "sha256", "sha512").forEach {
+            computeHashes(entries, it)
+        }
+
         archive.write(bundlePath.toPath())
+    }
+
+    private fun computeHashes(
+        entries: List<ArchiveReference.Entry>,
+        _hashType: String
+    ) {
+        val hashType = _hashType.lowercase()
+
+        val engine = MessageDigest.getInstance(hashType)
+
+        entries
+            .filterNot { it.isDirectory }
+            .forEach { entry ->
+                val digest = engine.digest(
+                    entry.resource.openStream().readInputStream(),
+                )
+
+                entry.handle.writer.put(
+                    ArchiveReference.Entry(
+                        entry.name + "." + hashType,
+                        Resource("<heap>") {
+                            HexFormat.of().formatHex(digest).byteInputStream()
+                        },
+                        false,
+                        entry.handle
+                    )
+                )
+
+                engine.reset()
+            }
     }
 
     private fun buildErm(): MutableExtensionRuntimeModel {
