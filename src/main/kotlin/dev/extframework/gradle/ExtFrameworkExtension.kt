@@ -7,8 +7,10 @@ import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
 import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.DownloadExtensions
+import dev.extframework.gradle.tasks.GenerateMcSources
 import dev.extframework.internal.api.TOOLING_API_VERSION
 import dev.extframework.internal.api.extension.ExtensionParent
+import dev.extframework.internal.api.extension.ExtensionRuntimeModel
 import dev.extframework.internal.api.extension.PartitionModelReference
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
@@ -42,6 +44,7 @@ abstract class ExtFrameworkExtension(
                 .withType(Jar::class.java)
                 .named(handler.sourceSet.jarTaskName).configure {
                     it.from(handler.sourceSet.output)
+                    it.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
                     it.archiveClassifier.set(handler.name)
                 }
             project.tasks.register(
@@ -150,20 +153,21 @@ abstract class ExtFrameworkExtension(
     val erm: Property<MutableExtensionRuntimeModel> = project.property {
         MutableExtensionRuntimeModel(
             TOOLING_API_VERSION,
-            project.property {
-                project.group as String
+            project.provider {
+                project.group as? String ?: throw Exception("No 'project.group' set!")
             },
             project.property {
                 project.name
             },
-            project.property {
-                project.version as String
+            project.provider {
+                project.version as? String  ?: throw Exception("No 'project.version' set!")
             },
             project.newListProperty(),
             project.newSetProperty(),
             project.newSetProperty(),
         )
     }
+    private val ermUpdates = ArrayList<Action<MutableExtensionRuntimeModel>>()
 
     val metadata : Property<MutableExtensionMetadata> = project.property {
         MutableExtensionMetadata(
@@ -175,9 +179,10 @@ abstract class ExtFrameworkExtension(
         )
     }
 
+    private val finalizationListeners = ArrayList<Action<ExtFrameworkExtension>>()
+
     val mappingProviders: NamedDomainObjectContainer<MinecraftDeobfuscator> =
         project.container(MinecraftDeobfuscator::class.java)
-
 
     init {
         mappingProviders.addAll(
@@ -187,11 +192,20 @@ abstract class ExtFrameworkExtension(
                 MinecraftMappings.none
             )
         )
+
         extensions {
             it.require("dev.extframework.extension:core-mc:$CORE_MC_VERSION")
         }
-    }
 
+        project.afterEvaluate {
+            ermUpdates.forEach {
+                eagerModel(it)
+            }
+            finalizationListeners.forEach {
+                it.execute(this)
+            }
+        }
+    }
     fun partitions(action: Action<NamedDomainPartitionContainer>) {
         action.execute(partitions)
     }
@@ -243,9 +257,7 @@ abstract class ExtFrameworkExtension(
     }
 
     fun model(action: Action<MutableExtensionRuntimeModel>) {
-        project.afterEvaluate {
-            eagerModel(action)
-        }
+        ermUpdates.add(action)
     }
 
     internal fun eagerModel(action: Action<MutableExtensionRuntimeModel>) {
@@ -270,6 +282,10 @@ abstract class ExtFrameworkExtension(
                 metadata
             }
         }
+    }
+
+    internal fun afterFinalized(action: Action<ExtFrameworkExtension>) {
+        finalizationListeners.add(action)
     }
 
     internal companion object {

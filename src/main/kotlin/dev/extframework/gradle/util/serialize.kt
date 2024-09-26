@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
-import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.provider.SetProperty
 
 class SetPropertySerializer : JsonSerializer<SetProperty<*>>() {
@@ -42,8 +42,8 @@ class MapPropertySerializer : JsonSerializer<MapProperty<*, *>>() {
     }
 }
 
-class PropertySerializer : JsonSerializer<Property<*>>() {
-    override fun serialize(value: Property<*>, gen: JsonGenerator, serializers: SerializerProvider) {
+class ProviderSerializer : JsonSerializer<Provider<*>>() {
+    override fun serialize(value: Provider<*>, gen: JsonGenerator, serializers: SerializerProvider) {
         if (value.isPresent) {
             gen.writeObject(value.get())
         } else {
@@ -51,3 +51,4 @@ class PropertySerializer : JsonSerializer<Property<*>>() {
         }
     }
 }
+

@@ -4,72 +4,76 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import dev.extframework.common.util.make
+import dev.extframework.common.util.resolve
 import dev.extframework.gradle.ExtFrameworkExtension
 import dev.extframework.gradle.util.ListPropertySerializer
 import dev.extframework.gradle.util.MapPropertySerializer
-import dev.extframework.gradle.util.PropertySerializer
+import dev.extframework.gradle.util.ProviderSerializer
 import dev.extframework.gradle.util.SetPropertySerializer
 import dev.extframework.internal.api.extension.ExtensionRepository
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenArtifactRepository
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
+import java.io.File
 
 // TODO we want this or not?
-//abstract class GenerateErm : DefaultTask() {
-//    private val extframework
-//        get() = project.extensions.getByName("extension") as ExtFrameworkExtension
-//
-//    @get:OutputFile
-//    val ermPath: File =
-//        (project.layout.buildDirectory.asFile.get().toPath() resolve "libs" resolve "erm.json").toFile()
-//
-//    @TaskAction
-//    fun generateErm() {
-//        val mapper = ObjectMapper()
-//            .registerModule(KotlinModule.Builder().build())
-//            .registerModule(
-//                SimpleModule()
-//                    .addSerializer(Property::class.java, PropertySerializer())
-//                    .addSerializer(SetProperty::class.java, SetPropertySerializer())
-//                    .addSerializer(MapProperty::class.java, MapPropertySerializer())
-//                    .addSerializer(ListProperty::class.java, ListPropertySerializer())
-//            )
-//
-//        extframework.eagerModel {
-//            it.repositories.addAll(
-//                project.repositories.map {
-//                    when (it) {
-//                        is DefaultMavenLocalArtifactRepository -> mutableMapOf(
-//                            "location" to it.url.path,
-//                            "type" to "local"
-//                        )
-//
-//                        is DefaultMavenArtifactRepository -> mutableMapOf(
-//                            "location" to it.url.toString(),
-//                            "type" to "default"
-//                        )
-//
-//                        else -> throw Exception("Unknown repository type: ${it::class}")
-//                    }
-//                }
-//            )
-//        }
-//        val ermAsBytes =
-//            mapper.writeValueAsBytes(extframework.erm.get())
-//
-//        ermPath.toPath().make()
-//        ermPath.writeBytes(ermAsBytes)
-//    }
-//}
-//
+abstract class GenerateErm : DefaultTask() {
+    private val extframework
+        get() = project.extensions.getByName("extension") as ExtFrameworkExtension
+
+    @get:OutputFile
+    val ermPath: File =
+        (project.layout.buildDirectory.asFile.get().toPath() resolve  "libs" resolve "erm.json").toFile()
+
+    @TaskAction
+    fun generateErm() {
+        val mapper = ObjectMapper()
+            .registerModule(KotlinModule.Builder().build())
+            .registerModule(
+                SimpleModule()
+                    .addSerializer(Provider::class.java, ProviderSerializer())
+                    .addSerializer(SetProperty::class.java, SetPropertySerializer())
+                    .addSerializer(MapProperty::class.java, MapPropertySerializer())
+                    .addSerializer(ListProperty::class.java, ListPropertySerializer())
+            )
+
+        extframework.eagerModel {
+            it.repositories.addAll(
+                project.repositories.map {
+                    when (it) {
+                        is DefaultMavenLocalArtifactRepository -> mutableMapOf(
+                            "location" to it.url.path,
+                            "type" to "local"
+                        )
+
+                        is DefaultMavenArtifactRepository -> mutableMapOf(
+                            "location" to it.url.toString(),
+                            "type" to "default"
+                        )
+
+                        else -> throw Exception("Unknown repository type: ${it::class}")
+                    }
+                }
+            )
+        }
+        val ermAsBytes =
+            mapper.writeValueAsBytes(extframework.erm.get())
+
+        ermPath.toPath().make()
+        ermPath.writeBytes(ermAsBytes)
+    }
+}
+
 abstract class GeneratePrm : DefaultTask() {
     private val extframework
         get() = project.extensions.getByName("extension") as ExtFrameworkExtension
@@ -91,7 +95,7 @@ abstract class GeneratePrm : DefaultTask() {
             .registerModule(KotlinModule.Builder().build())
             .registerModule(
                 SimpleModule()
-                    .addSerializer(Property::class.java, PropertySerializer())
+                    .addSerializer(Property::class.java, ProviderSerializer())
                     .addSerializer(SetProperty::class.java, SetPropertySerializer())
                     .addSerializer(MapProperty::class.java, MapPropertySerializer())
                     .addSerializer(ListProperty::class.java, ListPropertySerializer())
@@ -132,7 +136,5 @@ abstract class GeneratePrm : DefaultTask() {
         path.writeBytes(prmAsBytes)
     }
 }
-//
-//
-//
-//internal fun Project.registerGenerateErmTask() = project.tasks.register("generateErm", GenerateErm::class.java)
+
+internal fun Project.registerGenerateErmTask() = tasks.register("generateErm", GenerateErm::class.java)

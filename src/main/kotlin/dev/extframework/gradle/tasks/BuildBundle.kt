@@ -1,5 +1,6 @@
 package dev.extframework.gradle.tasks
 
+import GenerateErm
 import com.durganmcbroom.resources.Resource
 import com.durganmcbroom.resources.openStream
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -13,7 +14,7 @@ import dev.extframework.gradle.ExtFrameworkExtension
 import dev.extframework.gradle.MutableExtensionRuntimeModel
 import dev.extframework.gradle.util.ListPropertySerializer
 import dev.extframework.gradle.util.MapPropertySerializer
-import dev.extframework.gradle.util.PropertySerializer
+import dev.extframework.gradle.util.ProviderSerializer
 import dev.extframework.gradle.util.SetPropertySerializer
 import dev.extframework.gradle.write
 import org.gradle.api.DefaultTask
@@ -45,21 +46,21 @@ abstract class BuildBundle : DefaultTask() {
             .registerModule(KotlinModule.Builder().build())
             .registerModule(
                 SimpleModule()
-                    .addSerializer(Property::class.java, PropertySerializer())
+                    .addSerializer(Property::class.java, ProviderSerializer())
                     .addSerializer(SetProperty::class.java, SetPropertySerializer())
                     .addSerializer(MapProperty::class.java, MapPropertySerializer())
                     .addSerializer(ListProperty::class.java, ListPropertySerializer())
             )
 
-        val erm = buildErm()
         val metadata = extframework.metadata.get()
 
         val archive = emptyArchiveReference()
+
         archive.writer.put(
             ArchiveReference.Entry(
                 "erm.json",
                 Resource("<heap>") {
-                    ByteArrayInputStream(mapper.writeValueAsBytes(erm))
+                    FileInputStream(project.tasks.withType(GenerateErm::class.java).getByName("generateErm").ermPath)
                 },
                 false,
                 archive
@@ -140,29 +141,5 @@ abstract class BuildBundle : DefaultTask() {
 
                 engine.reset()
             }
-    }
-
-    private fun buildErm(): MutableExtensionRuntimeModel {
-        extframework.eagerModel {
-            it.repositories.addAll(
-                project.repositories.map {
-                    when (it) {
-                        is DefaultMavenLocalArtifactRepository -> mutableMapOf(
-                            "location" to it.url.path,
-                            "type" to "local"
-                        )
-
-                        is DefaultMavenArtifactRepository -> mutableMapOf(
-                            "location" to it.url.toString(),
-                            "type" to "default"
-                        )
-
-                        else -> throw Exception("Unknown repository type: ${it::class}")
-                    }
-                }
-            )
-        }
-
-        return extframework.erm.get()
     }
 }

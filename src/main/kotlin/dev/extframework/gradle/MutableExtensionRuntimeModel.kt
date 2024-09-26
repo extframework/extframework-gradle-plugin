@@ -10,14 +10,15 @@ import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.provider.SetProperty
 import java.io.Serializable
 
 data class MutableExtensionRuntimeModel(
     val apiVersion: Int,
-    val groupId: Property<String>,
+    val groupId: Provider<String>,
     val name: Property<String>,
-    val version: Property<String>,
+    val version: Provider<String>,
 
     val repositories: ListProperty<Map<String, String>>,
     val parents: SetProperty<ExtensionParent>,
