@@ -9,22 +9,19 @@ import dev.extframework.gradle.publish.registerPublishExtensionToLocalTask
 import dev.extframework.gradle.tasks.BuildBundle
 import dev.extframework.gradle.tasks.GenerateMcSources
 import dev.extframework.gradle.tasks.registerLaunchTask
-import org.gradle.api.NamedDomainObjectFactory
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.plugins.JvmEcosystemPlugin
 import org.gradle.api.publish.PublishingExtension
-import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
-import org.gradle.jvm.tasks.Jar
 import registerGenerateErmTask
 import java.net.URI
 import java.nio.file.Path
 
 internal const val CLIENT_VERSION = "2.1.1-SNAPSHOT"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
-internal const val CORE_MC_VERSION = "1.0.4-SNAPSHOT"
+internal const val CORE_MC_VERSION = "1.0.4-BETA"
 
 internal val HOME_DIR = Path.of(System.getProperty("user.home")) resolve ".extframework"
 

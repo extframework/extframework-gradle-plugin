@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "dev.extframework.mc"
-version = "1.2.6"
+version = "1.2.7"
 
 repositories {
     mavenLocal()
