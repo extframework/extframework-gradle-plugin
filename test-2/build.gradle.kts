@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.6"
+    id("dev.extframework.mc") version "1.2.7"
     id("dev.extframework.common") version "1.0.22"
 }
 
@@ -29,6 +29,9 @@ repositories {
     mavenCentral()
     mavenLocal()
     extframework()
+    maven {
+        url = uri("https://repo.extframework.dev/registry")
+    }
 }
 
 tasks.jar {

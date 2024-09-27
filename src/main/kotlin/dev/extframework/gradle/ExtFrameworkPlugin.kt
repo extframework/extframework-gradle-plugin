@@ -1,5 +1,6 @@
 package dev.extframework.gradle
 
+import GenerateErm
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.publish.DefaultExtensionPublication
@@ -43,6 +44,7 @@ class ExtFrameworkPlugin : Plugin<Project> {
                     )
                 }
             })
+            it.dependsOn(project.tasks.withType(GenerateErm::class.java))
         }
 
         project.extensions.getByType(PublishingExtension::class.java).publications.registerFactory(
