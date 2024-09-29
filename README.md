@@ -14,7 +14,7 @@ The plugin is used in the build.gradle file and its primary section is 'extensio
 ```
 extension {
     model {
-        name = "example-extension"
+        name = "example"
     }
 
     extensions {
