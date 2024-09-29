@@ -30,7 +30,6 @@ extension {
         main {
             extensionClass = "org.example.Example"
             dependencies {
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
             }
         }
         version("latest") {
