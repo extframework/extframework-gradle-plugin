@@ -35,7 +35,6 @@ extension {
         version("latest") {
             dependencies {
                 archives()
-                commonUtil()
 
                 minecraft("1.21")
                 coreApi()
