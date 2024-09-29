@@ -47,7 +47,6 @@ extension {
             mappings = MinecraftMappings.mojang
             dependencies {
                 minecraft("1.19.2")
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
                 coreApi()
             }
 
