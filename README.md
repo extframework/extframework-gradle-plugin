@@ -10,7 +10,7 @@
 [![Supported ](https://img.shields.io/badge/Linux-Unknown-aaaaaa)](https://github.com/extframework/example-extension)
 
 ## Getting Started
-The plugin is used in the build.gradle file and its primary section is 'extension': 
+The plugin is used in the build.gradle.kts file and its primary section is 'extension': 
 ```
 extension {
     model {
