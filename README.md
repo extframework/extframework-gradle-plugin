@@ -23,7 +23,7 @@ extension {
     metadata {
         name = "Example Extension"
         developers.add("Durgan McBroom")
-        description.set("An example extension to test the limits of extframework")
+        description.set("Whatever you want here")
     }
 
     partitions {
