@@ -28,7 +28,7 @@ extension {
 
     partitions {
         main {
-            extensionClass = "dev.extframework.extensions.example.ExampleExtension"
+            extensionClass = "org.example.Example"
             dependencies {
                 implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
             }
