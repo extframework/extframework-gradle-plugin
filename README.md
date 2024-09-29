@@ -1,3 +1,4 @@
+<a id="readme-top"></a>
 ## ExtensionFramework Gradle Plugin
 [![Latest Stable Version](https://img.shields.io/github/v/release/extframework/extframework-gradle-plugin?include_prereleases)](https://github.com/extframework/extframework-gradle-plugin)
 [![Top Language](https://img.shields.io/github/languages/top/extframework/extframework-gradle-plugin)](https://github.com/extframework/extframework-gradle-plugin)
@@ -70,11 +71,15 @@ new types of MC mappings or new types of mixins.
 
 The other sections are either self-explanatory or TBD.
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Documentation
 Further documention can be found at:
 
 * Mixins in the Extension Loader project [https://github.com/extframework/ext-loader](https://github.com/extframework/ext-loader)
 * Full Example project [https://github.com/extframework/example-extension](https://github.com/extframework/example-extension)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Contact
 
@@ -83,6 +88,8 @@ Further documention can be found at:
   <li> Linkedin: https://www.linkedin.com/in/durganmcbroom/ </li> 
   <li> Email: durganmcbroom@gmail.com </li>
 </ul>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- CREDITS -->
 ## Credits
