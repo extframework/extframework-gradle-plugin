@@ -21,7 +21,7 @@ extension {
     }
 
     metadata {
-        name = "Example Extension"
+        name = "A human readable name (not camel/snake case)"
         developers.add("Durgan McBroom")
         description.set("Whatever you want here")
     }
