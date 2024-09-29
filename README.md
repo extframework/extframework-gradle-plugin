@@ -38,7 +38,6 @@ extension {
                 commonUtil()
 
                 minecraft("1.21")
-                implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.10")
                 coreApi()
             }
             mappings = MinecraftMappings.mojang
