@@ -23,18 +23,35 @@ fun setupMinecraft(
     basePath: Path,
     deobfuscator: MinecraftDeobfuscator,
     mapperType: String // Redundant but we need to make sure...
-) : Pair<Path, List<Path>> {
-    val (metadata, cached) = cacheMinecraft(
+): Pair<Path, List<Path>> {
+    val (mcPath, mcJarPath, libMarkerPath) = mcPaths(version, basePath, mapperType)
+
+    if (libMarkerPath.exists()) {
+        return mcJarPath to parseDependencyMarker(libMarkerPath)
+    }
+
+    val libsPath = mcPath resolve "libs"
+    val metadata = cacheMinecraft(
         version,
-        basePath,
-        mapperType
+        mcJarPath,
+        libsPath,
     )
-    val (mc, dependencies) = metadata
+
+    val markerContent = libsPath.joinToString(separator = "\n") { it.absolutePathString() }
+    libMarkerPath.make()
+    libMarkerPath.writeBytes(markerContent.toByteArray())
+
     val mappings = deobfuscator.provider.forIdentifier(version)
 
-    if (cached) remapJar(mc, mappings, dependencies, deobfuscator.obfuscatedNamespace, deobfuscator.deobfuscatedNamespace)
+    remapJar(
+        metadata.mcPath,
+        mappings,
+        metadata.dependencies,
+        deobfuscator.obfuscatedNamespace,
+        deobfuscator.deobfuscatedNamespace
+    )
 
-    return mc to dependencies
+    return metadata.mcPath to metadata.dependencies
 }
 
 data class McMetadata(
@@ -42,64 +59,76 @@ data class McMetadata(
     val dependencies: List<Path>,
 )
 
-private fun cacheMinecraft(version: String, basePath: Path, mappingsType: String): Pair<McMetadata, Boolean> = launch {
+private fun mcPaths(
+    version: String,
+    basePath: Path,
+    mappingsType: String
+): Triple<Path, Path, Path> {
     val minecraftPath = basePath resolve "net" resolve "minecraft" resolve "client" resolve version resolve mappingsType
-    val minecraftJarPath = minecraftPath resolve "minecraft-${version}.jar"
-
-    val libPath = minecraftPath resolve "libs"
 
     val dependenciesMarker = minecraftPath resolve ".MINECRAFT_LIBS_MARKER"
 
-    val b = !(minecraftJarPath.exists()  && dependenciesMarker.exists())
-    if (b) {
-        val versionManifest = loadVersionManifest()
+    val minecraftJarPath = minecraftPath resolve "minecraft-${version}.jar"
 
-        val metadata = parseMetadata(
-            (versionManifest.find(version)
-                ?: throw IllegalArgumentException("Unknown minecraft version: '$version'")).metadata().merge()
-        ).merge()
+    return Triple(minecraftPath, minecraftJarPath, dependenciesMarker)
+}
 
-        // Download minecraft jar
-        if (minecraftJarPath.make()) {
 
-            val clientResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT]?.toResource()?.merge()
-                ?: throw IllegalArgumentException("Cant find client in launch metadata?")
-            clientResource copyTo minecraftJarPath
-        }
+private fun cacheMinecraft(
+    version: String,
+    mcJarPath: Path,
+    mcLibsPath: Path
+): McMetadata = launch {
+    val versionManifest = loadVersionManifest()
 
-        if (dependenciesMarker.make()) {
-            val processor = DefaultMetadataProcessor()
-            val dependencies = processor.deriveDependencies(OsType.type, metadata)
-            val paths = dependencies.map {
-                val split = it.name.split(':')
-                val dClassifier = split.getOrNull(3)
-                val (dGroup, dArtifact, dVersion) = split
-                val toPath = libPath resolve (dGroup.replace(
-                    '.',
-                    File.separatorChar
-                )) resolve dArtifact resolve dVersion resolve "${dArtifact}-${dVersion}${if (dClassifier == null) "" else "-${dClassifier}"}.jar"
+    val metadata = parseMetadata(
+        (versionManifest.find(version)
+            ?: throw IllegalArgumentException("Unknown minecraft version: '$version'")).metadata().merge()
+    ).merge()
 
-                it.downloads.artifact.toResource().merge() copyTo toPath
-
-                toPath
-            }
-
-            val markerContent = paths.joinToString(separator = "\n") { it.absolutePathString() }
-
-            dependenciesMarker.writeBytes(markerContent.toByteArray())
-        }
+    if (mcJarPath.make()) {
+        val clientResource = metadata.downloads[LaunchMetadataDownloadType.CLIENT]?.toResource()?.merge()
+            ?: throw IllegalArgumentException("Cant find client in launch metadata?")
+        clientResource copyTo mcJarPath
     }
 
-    McMetadata(minecraftJarPath, parseDependencyMarker(dependenciesMarker)) to b
+    val processor = DefaultMetadataProcessor()
+    val dependencies = processor.deriveDependencies(OsType.type, metadata)
+    val paths = dependencies.map {
+        val split = it.name.split(':')
+        val dClassifier = split.getOrNull(3)
+        val (dGroup, dArtifact, dVersion) = split
+        val filePath = Path.of(
+            dGroup.replace(
+                '.',
+                File.separatorChar
+            )
+        ) resolve dArtifact resolve dVersion resolve "${dArtifact}-${dVersion}${if (dClassifier == null) "" else "-${dClassifier}"}.jar"
+
+        val resolvedPath = mcLibsPath resolve filePath
+
+        it.downloads.artifact.toResource().merge() copyTo resolvedPath
+
+        resolvedPath
+    }
+
+    McMetadata(mcJarPath, paths)
 }
 
-private fun parseDependencyMarker(path: Path) : List<Path> {
-    val reader = BufferedReader(FileReader(path.toFile()))
+private fun parseDependencyMarker(path: Path): List<Path> {
+    return BufferedReader(FileReader(path.toFile())).use {
+        it.lineSequence().map(Path::of).toList()
 
-    return reader.lineSequence().map(Path::of).toList()
+    }
 }
 
-fun remapJar(jarPath: Path, mappings: ArchiveMapping, dependencies: List<Path>, fromNS: String, toNS: String) {
+fun remapJar(
+    jarPath: Path,
+    mappings: ArchiveMapping,
+    dependencies: List<Path>,
+    fromNS: String,
+    toNS: String
+) {
     val archive = Archives.find(jarPath, Archives.Finders.ZIP_FINDER)
     val libArchives = dependencies.map(Archives.Finders.ZIP_FINDER::find)
 

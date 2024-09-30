@@ -59,6 +59,8 @@ internal fun ArchiveReference.write(path: Path) {
             target.closeEntry()
         }
     }
+    close()
+
 
     Files.copy(temp, path, StandardCopyOption.REPLACE_EXISTING)
 }
