@@ -25,6 +25,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
+import java.nio.file.Path
 
 // TODO we want this or not?
 abstract class GenerateErm : DefaultTask() {
@@ -49,19 +50,19 @@ abstract class GenerateErm : DefaultTask() {
 
         extframework.eagerModel {
             it.repositories.addAll(
-                project.repositories.map {
-                    when (it) {
+                project.repositories.map { repo ->
+                    when (repo) {
                         is DefaultMavenLocalArtifactRepository -> mutableMapOf(
-                            "location" to it.url.path,
+                            "location" to Path.of(repo.url).toString(),
                             "type" to "local"
                         )
 
                         is DefaultMavenArtifactRepository -> mutableMapOf(
-                            "location" to it.url.toString(),
+                            "location" to repo.url.toString(),
                             "type" to "default"
                         )
 
-                        else -> throw Exception("Unknown repository type: ${it::class}")
+                        else -> throw Exception("Unknown repository type: ${repo::class}")
                     }
                 }
             )
@@ -115,10 +116,14 @@ abstract class GeneratePrm : DefaultTask() {
                             "type" to "default"
                         )
 
-                        is DefaultMavenLocalArtifactRepository -> mutableMapOf(
-                            "location" to it.url.path,
-                            "type" to "local"
-                        )
+                        is DefaultMavenLocalArtifactRepository -> {
+                            println(it.url)
+                            println(Path.of(it.url).toString())
+                            mutableMapOf(
+                                "location" to Path.of(it.url).toString(),
+                                "type" to "local"
+                            )
+                        }
 
                         else -> throw Exception("Unknown repository type: ${it::class}")
                     }
