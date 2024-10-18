@@ -5,7 +5,6 @@ import dev.extframework.core.api.Extension
 
 class MyExtension2 : Extension() {
     override fun init() {
-
         println("INIT!")
     }
 }
