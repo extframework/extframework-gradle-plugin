@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.7"
+    id("dev.extframework.mc") version "1.2.11"
     id("dev.extframework.common") version "1.0.22"
 }
 
@@ -29,9 +29,9 @@ repositories {
     mavenCentral()
     mavenLocal()
     extframework()
-    maven {
-        url = uri("https://repo.extframework.dev/registry")
-    }
+//    maven {
+//        url = uri("https://repo.extframework.dev/registry")
+//    }
 }
 
 tasks.jar {
@@ -39,6 +39,9 @@ tasks.jar {
 }
 
 tasks.launch {
+    allJvmArgs = listOf(
+        "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005"
+    )
     javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
     mcVersion.set("1.21")
     targetNamespace.set(MinecraftMappings.mojang.deobfuscatedNamespace)

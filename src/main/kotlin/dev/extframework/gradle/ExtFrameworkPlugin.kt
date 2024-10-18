@@ -1,7 +1,6 @@
 package dev.extframework.gradle
 
 import GenerateErm
-import dev.extframework.common.util.resolve
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.publish.DefaultExtensionPublication
 import dev.extframework.gradle.publish.ExtensionPublication
@@ -18,13 +17,10 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import registerGenerateErmTask
 import java.net.URI
-import java.nio.file.Path
 
-internal const val CLIENT_VERSION = "2.1.1-SNAPSHOT"
+internal const val CLIENT_VERSION = "1.0.2-BETA"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
-internal const val CORE_MC_VERSION = "1.0.5-BETA"
-
-internal val HOME_DIR = Path.of(System.getProperty("user.home")) resolve ".extframework"
+internal const val CORE_MC_VERSION = "1.0.7-BETA"
 
 class ExtFrameworkPlugin : Plugin<Project> {
     override fun apply(project: Project) {

@@ -7,6 +7,7 @@ import com.durganmcbroom.artifact.resolver.simple.maven.layout.SimpleMavenLocalL
 import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.resources.ResourceAlgorithm
 import dev.extframework.common.util.copyTo
+import dev.extframework.common.util.make
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.*
 import org.gradle.api.Project
@@ -16,9 +17,28 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.JavaExec
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
+
+private fun getHomedir(): Path {
+    return getMinecraftDir() resolve ".extframework"
+}
+
+private fun getMinecraftDir(): Path {
+    val osName = System.getProperty("os.name").lowercase()
+    val userHome = System.getProperty("user.home")
+
+    return when {
+        osName.contains("win") -> {
+            val appData = System.getenv("APPDATA")?.let(Path::of) ?: Path.of(userHome, "AppData", "Roaming")
+            appData resolve ".minecraft"
+        }
+        osName.contains("mac") -> Paths.get(userHome, "Library", "Application Support", "minecraft")
+        else -> Paths.get(userHome, ".minecraft") // Assuming Linux/Unix-like
+    }
+}
 
 fun preDownloadClient(version: String): Path {
-    return HOME_DIR resolve "client-$version.jar"
+    return getHomedir() resolve "client-$version.jar"
 }
 
 fun downloadClient(version: String, devMode: Boolean = false) {
@@ -28,7 +48,7 @@ fun downloadClient(version: String, devMode: Boolean = false) {
     val layout = if (devMode)
         SimpleMavenLocalLayout()
     else SimpleMavenDefaultLayout(
-        "https://maven.extframework.dev/snapshots", ResourceAlgorithm.SHA1,
+        "https://maven.extframework.dev/releases", ResourceAlgorithm.SHA1,
         releasesEnabled = true,
         snapshotsEnabled = true,
         requireResourceVerification = true
@@ -75,19 +95,23 @@ internal fun Project.registerLaunchTask(extframework: ExtFrameworkExtension, pub
         exec.classpath(path)
         exec.mainClass.set(CLIENT_MAIN_CLASS)
 
-        val wd = (HOME_DIR resolve "wd").toAbsolutePath().toFile()
+        val wd = (getHomedir() resolve "wd").toAbsolutePath().toFile()
         wd.mkdirs()
         exec.workingDir = wd
 
         exec.doFirst {
             val mcVersion = exec.mcVersion.orNull ?: project.findProperty("mcVersion") as String
+            val extensionPath = extframework.project.layout.buildDirectory.get().asFile.toPath() resolve "extension"
             exec.args = listOf(
                 "-e", desc.name,
                 "-r", "local@$repo",
                 "--version=extframework-$mcVersion",
-                "dev",
                 "--mapping-namespace=${exec.targetNamespace.get()}",
+                "--extension-dir=${extensionPath.toAbsolutePath()}"
             )
+            if (!extensionPath.make()) {
+                extensionPath.toFile().deleteRecursively()
+            }
 
             downloadClient(CLIENT_VERSION, devMode)
         }
