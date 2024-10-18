@@ -29,9 +29,9 @@ repositories {
     mavenCentral()
     mavenLocal()
     extframework()
-//    maven {
-//        url = uri("https://repo.extframework.dev/registry")
-//    }
+    maven {
+        url = uri("https://repo.extframework.dev/registry")
+    }
 }
 
 tasks.jar {
