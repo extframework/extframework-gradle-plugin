@@ -109,7 +109,7 @@ internal fun Project.registerLaunchTask(extframework: ExtFrameworkExtension, pub
                 "--mapping-namespace=${exec.targetNamespace.get()}",
                 "--extension-dir=${extensionPath.toAbsolutePath()}"
             )
-            if (!extensionPath.make()) {
+            if (Files.exists(extensionPath)) {
                 extensionPath.toFile().deleteRecursively()
             }
 

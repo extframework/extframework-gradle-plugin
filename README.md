@@ -6,7 +6,7 @@
 [![Issues Open](https://img.shields.io/github/issues/extframework/extframework-gradle-plugin)](https://github.com/extframework/extframework-gradle-plugin)
 
 [![Supported ](https://img.shields.io/badge/Mac-Supported-Green)](https://github.com/extframework/example-extension)
-[![Supported ](https://img.shields.io/badge/Windows-BUG-ff0000)](https://github.com/extframework/example-extension)
+[![Supported ](https://img.shields.io/badge/Windows-Supported-Green)](https://github.com/extframework/example-extension)
 [![Supported ](https://img.shields.io/badge/Linux-Unknown-aaaaaa)](https://github.com/extframework/example-extension)
 
 ## Getting Started
