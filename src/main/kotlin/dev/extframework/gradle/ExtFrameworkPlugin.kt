@@ -18,7 +18,7 @@ import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import registerGenerateErmTask
 import java.net.URI
 
-internal const val CLIENT_VERSION = "1.0.3-BETA"
+internal const val CLIENT_VERSION = "1.0.4-BETA"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
 internal const val CORE_MC_VERSION = "1.0.8-BETA"
 
