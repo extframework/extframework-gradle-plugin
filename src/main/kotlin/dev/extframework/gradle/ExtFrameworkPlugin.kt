@@ -20,7 +20,7 @@ import java.net.URI
 
 internal const val CLIENT_VERSION = "1.0.5-BETA"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
-internal const val CORE_MC_VERSION = "1.0.10-BETA"
+internal const val CORE_MC_VERSION = "1.0.11-BETA"
 
 class ExtFrameworkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
