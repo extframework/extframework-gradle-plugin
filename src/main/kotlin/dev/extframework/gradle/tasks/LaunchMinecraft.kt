@@ -104,7 +104,7 @@ internal fun Project.registerLaunchTask(extframework: ExtFrameworkExtension, pub
         exec.doFirst {
             val mcVersion = exec.mcVersion.orNull ?: project.findProperty("mcVersion") as String
             val extensionPath = extframework.project.layout.buildDirectory.get().asFile.toPath() resolve "extension"
-            exec.args = listOf(
+            exec.args(
                 "-e", desc.name,
                 "-r", "local@$repo",
                 "--version=extframework-$mcVersion",
