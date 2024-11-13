@@ -12,15 +12,17 @@ import dev.extframework.gradle.tasks.registerLaunchTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.dsl.RepositoryHandler
+import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.plugins.JvmEcosystemPlugin
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import registerGenerateErmTask
 import java.net.URI
 
-internal const val CLIENT_VERSION = "1.0.5-BETA"
+internal const val CLIENT_VERSION = "1.0.6-BETA"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
-internal const val CORE_MC_VERSION = "1.0.11-BETA"
+internal const val CORE_MC_VERSION = "1.0.12-BETA"
 
 class ExtFrameworkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -64,6 +66,8 @@ class ExtFrameworkPlugin : Plugin<Project> {
         project.tasks.register("genMcSources") {
             it.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
         }
+
+        project.extensions.getByType(JavaPluginExtension::class.java).toolchain.languageVersion.set(JavaLanguageVersion.of(8))
     }
 }
 

@@ -1,6 +1,8 @@
 package dev.extframework.gradle.deobf
 
 import dev.extframework.archive.mapper.*
+import dev.extframework.archive.mapper.parsers.mcp.MCPMappingParser
+import dev.extframework.common.util.resolve
 import dev.extframework.gradle.fabric.FabricMappingProvider
 import dev.extframework.gradle.fabric.RawFabricMappingProvider
 import java.nio.file.Path
@@ -15,6 +17,9 @@ object MinecraftMappings {
     @JvmStatic
     lateinit var none: MinecraftDeobfuscator
         private set
+
+    @JvmStatic
+    lateinit var mcpLegacy: MinecraftDeobfuscator
 
     internal fun setup(path: Path) {
         mojang = MojangDeobfuscator(path)
@@ -41,5 +46,7 @@ object MinecraftMappings {
 
             override fun getName(): String = "none"
         }
+
+        mcpLegacy = McpDeobfuscator(path)
     }
 }

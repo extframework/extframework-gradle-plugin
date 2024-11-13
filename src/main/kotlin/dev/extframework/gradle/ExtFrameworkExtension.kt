@@ -189,7 +189,8 @@ abstract class ExtFrameworkExtension(
             listOf(
                 MinecraftMappings.mojang,
                 MinecraftMappings.fabric,
-                MinecraftMappings.none
+                MinecraftMappings.none,
+                MinecraftMappings.mcpLegacy
             )
         )
 

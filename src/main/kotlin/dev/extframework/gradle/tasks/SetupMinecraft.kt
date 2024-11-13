@@ -14,6 +14,7 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.nio.file.Path
+import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
@@ -94,11 +95,11 @@ private fun cacheMinecraft(
 
     val processor = DefaultMetadataProcessor()
     val dependencies = processor.deriveDependencies(OsType.type, metadata)
-    val paths = dependencies.map {
+    val paths = dependencies.mapNotNull {
         val split = it.name.split(':')
         val dClassifier = split.getOrNull(3)
         val (dGroup, dArtifact, dVersion) = split
-        val filePath = Path.of(
+        val filePath = Path(
             dGroup.replace(
                 '.',
                 File.separatorChar
@@ -107,9 +108,9 @@ private fun cacheMinecraft(
 
         val resolvedPath = mcLibsPath resolve filePath
 
-        it.downloads.artifact.toResource().merge() copyTo resolvedPath
-
-        resolvedPath
+        it.downloads.artifact?.toResource()?.merge()?.let { r -> r copyTo resolvedPath }?.let {
+            resolvedPath
+        }
     }
 
     McMetadata(mcJarPath, paths)
@@ -117,7 +118,7 @@ private fun cacheMinecraft(
 
 private fun parseDependencyMarker(path: Path): List<Path> {
     return BufferedReader(FileReader(path.toFile())).use {
-        it.lineSequence().map(Path::of).toList()
+        it.lineSequence().map(::Path).toList()
 
     }
 }

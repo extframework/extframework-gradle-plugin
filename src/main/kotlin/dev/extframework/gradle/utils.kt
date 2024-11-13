@@ -10,16 +10,18 @@ import org.gradle.api.provider.SetProperty
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
+import kotlin.io.path.Path
 import kotlin.io.path.name
 
 fun <T> Property<T>.ifPresent(block: (T) -> Unit) {
     if (isPresent) block(get())
 }
 
-fun Project.mavenLocal(): Path = Path.of(repositories.mavenLocal().url)
+fun Project.mavenLocal(): Path = Paths.get(repositories.mavenLocal().url)
 
 internal inline fun <reified T> Project.property(default: () -> T? = { null }): Property<T> {
     return objects.property(T::class.java).convention(default())

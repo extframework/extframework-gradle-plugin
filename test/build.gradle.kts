@@ -10,8 +10,8 @@ import dev.extframework.gradle.withExtension
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2"
-    id("dev.extframework.common") version "1.0.16"
+    id("dev.extframework.mc") version "1.2.20"
+    id("dev.extframework.common") version "1.0.35"
 }
 
 group = "dev.extframework.extensions"
@@ -35,9 +35,6 @@ repositories {
 
 extension {
     model {
-        groupId.set("dev.extframework.extensions")
-        name.set("extframework-ext-test")
-        version.set("1.0-SNAPSHOT")
     }
 
     extensions {

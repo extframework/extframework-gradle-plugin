@@ -7,19 +7,17 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import dev.extframework.archives.ArchiveReference
+import dev.extframework.common.util.Hex
 import dev.extframework.common.util.readInputStream
 import dev.extframework.common.util.resolve
 import dev.extframework.extloader.util.emptyArchiveReference
 import dev.extframework.gradle.ExtFrameworkExtension
-import dev.extframework.gradle.MutableExtensionRuntimeModel
 import dev.extframework.gradle.util.ListPropertySerializer
 import dev.extframework.gradle.util.MapPropertySerializer
 import dev.extframework.gradle.util.ProviderSerializer
 import dev.extframework.gradle.util.SetPropertySerializer
 import dev.extframework.gradle.write
 import org.gradle.api.DefaultTask
-import org.gradle.api.internal.artifacts.repositories.DefaultMavenArtifactRepository
-import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
@@ -30,7 +28,6 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
-import java.util.HexFormat
 
 abstract class BuildBundle : DefaultTask() {
     private val extframework
@@ -132,7 +129,7 @@ abstract class BuildBundle : DefaultTask() {
                     ArchiveReference.Entry(
                         entry.name + "." + hashType,
                         Resource("<heap>") {
-                            HexFormat.of().formatHex(digest).byteInputStream()
+                            Hex.formatHex(digest).byteInputStream()
                         },
                         false,
                         entry.handle

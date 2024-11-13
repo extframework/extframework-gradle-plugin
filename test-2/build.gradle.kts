@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.11"
-    id("dev.extframework.common") version "1.0.22"
+    id("dev.extframework.mc") version "1.2.20"
+    id("dev.extframework.common") version "1.0.34"
 }
 
 group = "dev.extframework.extension"
@@ -21,8 +21,10 @@ tasks.wrapper {
 }
 
 tasks.launch {
-    jvmArgs = listOf("-XstartOnFirstThread")
-    targetNamespace.set("mojang:deobfuscated")
+    executable("/Users/durganmcbroom/Downloads/jdk8u432-b06-jre/Contents/Home/bin/java")
+//    jvmArgs("-XstartOnFirstThread")
+    targetNamespace.set("mojang:obfuscated")
+    mcVersion = "1.8.9"
 }
 
 repositories {
@@ -36,15 +38,6 @@ repositories {
 
 tasks.jar {
     archiveBaseName.set("extframework-ext-test-2")
-}
-
-tasks.launch {
-    allJvmArgs = listOf(
-        "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005"
-    )
-    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
-    mcVersion.set("1.21")
-    targetNamespace.set(MinecraftMappings.mojang.deobfuscatedNamespace)
 }
 
 extension {
@@ -62,19 +55,19 @@ extension {
     partitions {
         version("latest") {
             supportVersions("1.21")
-            mappings = MinecraftMappings.mojang
+            mappings = MinecraftMappings.none
 
             dependencies {
                 minecraft("1.21")
             }
         }
 
-        version("notLatest") {
-            supportVersions("1.19.1")
-            mappings = MinecraftMappings.mojang
+        version("legacy") {
+            supportVersions("1.8.9")
+            mappings = MinecraftMappings.mcpLegacy
 
             dependencies {
-                minecraft("1.19.1")
+                minecraft("1.8.9")
             }
         }
 
@@ -119,16 +112,9 @@ tasks.test {
     useJUnitPlatform()
 }
 
-tasks.compileKotlin {
-    compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
-}
-
-tasks.compileJava {
-    targetCompatibility = "21"
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
-}
+//java {
+//    toolchain {
+//        vendor = JvmVendorSpec.matching("Eclipse Temurin")
+//        languageVersion.set(JavaLanguageVersion.of(8))
+//    }
+//}

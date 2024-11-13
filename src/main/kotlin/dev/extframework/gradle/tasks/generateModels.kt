@@ -26,6 +26,8 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
 import java.nio.file.Path
+import java.nio.file.Paths
+import kotlin.io.path.Path
 
 // TODO we want this or not?
 abstract class GenerateErm : DefaultTask() {
@@ -53,7 +55,7 @@ abstract class GenerateErm : DefaultTask() {
                 project.repositories.map { repo ->
                     when (repo) {
                         is DefaultMavenLocalArtifactRepository -> mutableMapOf(
-                            "location" to Path.of(repo.url).toString(),
+                            "location" to Paths.get(repo.url).toString(),
                             "type" to "local"
                         )
 
@@ -118,9 +120,9 @@ abstract class GeneratePrm : DefaultTask() {
 
                         is DefaultMavenLocalArtifactRepository -> {
                             println(it.url)
-                            println(Path.of(it.url).toString())
+                            println(Paths.get(it.url).toString())
                             mutableMapOf(
-                                "location" to Path.of(it.url).toString(),
+                                "location" to Paths.get(it.url).toString(),
                                 "type" to "local"
                             )
                         }

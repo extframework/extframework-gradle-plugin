@@ -18,6 +18,7 @@ import org.gradle.api.tasks.JavaExec
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.Path
 
 private fun getHomedir(): Path {
     return getMinecraftDir() resolve ".extframework"
@@ -29,7 +30,7 @@ private fun getMinecraftDir(): Path {
 
     return when {
         osName.contains("win") -> {
-            val appData = System.getenv("APPDATA")?.let(Path::of) ?: Path.of(userHome, "AppData", "Roaming")
+            val appData = System.getenv("APPDATA")?.let(::Path) ?: Path(userHome, "AppData", "Roaming")
             appData resolve ".minecraft"
         }
         osName.contains("mac") -> Paths.get(userHome, "Library", "Application Support", "minecraft")
@@ -92,6 +93,7 @@ internal fun Project.registerLaunchTask(extframework: ExtFrameworkExtension, pub
         val path = preDownloadClient(CLIENT_VERSION)
         val (desc, repo) = preCacheExtension(this, extframework)
 
+
         exec.classpath(path)
         exec.mainClass.set(CLIENT_MAIN_CLASS)
 
@@ -112,6 +114,8 @@ internal fun Project.registerLaunchTask(extframework: ExtFrameworkExtension, pub
             if (Files.exists(extensionPath)) {
                 extensionPath.toFile().deleteRecursively()
             }
+
+            exec.jvmArgs("-Djava.library.path=${getMinecraftDir() resolve "bin"}")
 
             downloadClient(CLIENT_VERSION, devMode)
         }

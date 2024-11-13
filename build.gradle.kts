@@ -7,14 +7,13 @@ plugins {
     kotlin("jvm") version "1.9.21"
 
     id("com.gradle.plugin-publish") version "1.2.1"
-    id("dev.extframework.common") version "1.0.23"
+    id("dev.extframework.common") version "1.0.35"
 }
 
 group = "dev.extframework.mc"
-version = "1.2.19"
+version = "1.2.20"
 
 repositories {
-    mavenLocal()
     mavenCentral()
     extFramework()
 }
@@ -25,7 +24,7 @@ tasks.wrapper {
 
 dependencies {
     artifactResolver(maven = true)
-    archiveMapper(transform = true, tiny = true, proguard = true)
+    archiveMapper(transform = true, tiny = true, proguard = true, mcpLegacy = true)
     launcherMetaHandler()
     archives()
     commonUtil()
@@ -69,6 +68,6 @@ common {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(8))
     }
 }
