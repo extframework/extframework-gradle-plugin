@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "dev.extframework.mc"
-version = "1.2.20"
+version = "1.2.23"
 
 repositories {
     mavenCentral()

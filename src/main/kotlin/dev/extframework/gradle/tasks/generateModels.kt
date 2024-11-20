@@ -25,9 +25,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
-import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.Path
 
 // TODO we want this or not?
 abstract class GenerateErm : DefaultTask() {
@@ -93,7 +91,7 @@ abstract class GeneratePrm : DefaultTask() {
 
 
     @TaskAction
-    fun generateErm() {
+    fun generatePrm() {
         val mapper = ObjectMapper()
             .registerModule(KotlinModule.Builder().build())
             .registerModule(
@@ -113,11 +111,6 @@ abstract class GeneratePrm : DefaultTask() {
                 ExtensionRepository(
                     "simple-maven",
                     when (it) {
-                        is DefaultMavenArtifactRepository -> mutableMapOf(
-                            "location" to it.url.toString(),
-                            "type" to "default"
-                        )
-
                         is DefaultMavenLocalArtifactRepository -> {
                             println(it.url)
                             println(Paths.get(it.url).toString())
@@ -126,6 +119,11 @@ abstract class GeneratePrm : DefaultTask() {
                                 "type" to "local"
                             )
                         }
+
+                        is DefaultMavenArtifactRepository -> mutableMapOf(
+                            "location" to it.url.toString(),
+                            "type" to "default"
+                        )
 
                         else -> throw Exception("Unknown repository type: ${it::class}")
                     }
