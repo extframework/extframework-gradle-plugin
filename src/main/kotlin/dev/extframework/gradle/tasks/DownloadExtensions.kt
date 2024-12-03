@@ -14,11 +14,11 @@ import dev.extframework.common.util.resolve
 import dev.extframework.extloader.extension.artifact.ExtensionRepositoryFactory
 import dev.extframework.extloader.extension.partition.artifact.PartitionRepositoryFactory
 import dev.extframework.gradle.descriptor
-import dev.extframework.internal.api.extension.artifact.ExtensionArtifactMetadata
-import dev.extframework.internal.api.extension.artifact.ExtensionArtifactRequest
-import dev.extframework.internal.api.extension.artifact.ExtensionDescriptor
-import dev.extframework.internal.api.extension.partition.artifact.PartitionArtifactRequest
-import dev.extframework.internal.api.extension.partition.artifact.PartitionDescriptor
+import dev.extframework.tooling.api.extension.artifact.ExtensionArtifactMetadata
+import dev.extframework.tooling.api.extension.artifact.ExtensionArtifactRequest
+import dev.extframework.tooling.api.extension.artifact.ExtensionDescriptor
+import dev.extframework.tooling.api.extension.partition.artifact.PartitionArtifactRequest
+import dev.extframework.tooling.api.extension.partition.artifact.PartitionDescriptor
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
@@ -103,7 +103,7 @@ abstract class DownloadExtensions : DefaultTask() {
                                 erm.name resolve
                                 erm.version resolve
                                 "$jarPrefix-${partitionRef.name}.jar"
-                        req.resource copyTo path
+                        req.resource?.copyTo(path)
                     }
 
                     artifact.parents.forEach {

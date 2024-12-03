@@ -2,6 +2,8 @@ package dev.extframework.gradle
 
 import groovy.lang.Closure
 import dev.extframework.gradle.deobf.MinecraftDeobfuscator
+import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
+import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.GenerateMcSources
 import org.gradle.api.Action
 import org.gradle.api.Named
@@ -19,7 +21,7 @@ abstract class PartitionHandler<T : PartitionDependencyHandler>(
     // A shorthand for executing configurations just as the configuration block of this partition ends.
     private val configure: (() -> Unit) -> Unit,
 
-) : Named {
+    ) : Named {
     val generatePrmTaskName: String = "generatePrm${sourceSet.name.replaceFirstChar { it.uppercase() }}"
     protected val extframework: ExtFrameworkExtension = project.extensions.getByType(ExtFrameworkExtension::class.java)
 
@@ -54,9 +56,8 @@ class MainPartitionHandler(
     override val dependencies = PartitionDependencyHandler(
         project.dependencies, sourceSet
     ) {
-        ExtFrameworkExtension.ermDependency(it)
-            ?.toMutableMap()
-            ?.let(partition.dependencies::add)
+        it.toMutableMap()
+            .let(partition.dependencies::add)
     }
 
     var extensionClass: String
@@ -76,9 +77,7 @@ class TweakerPartitionHandler(
     override val dependencies = PartitionDependencyHandler(
         project.dependencies, sourceSet
     ) {
-        ExtFrameworkExtension.ermDependency(it)
-            ?.toMutableMap()
-            ?.let(partition.dependencies::add)
+        it.toMutableMap().let(partition.dependencies::add)
     }
 
     var tweakerClass: String
@@ -103,9 +102,7 @@ class VersionedPartitionHandler(
             project,
             mappings.name,
         ) {
-            ExtFrameworkExtension.ermDependency(it)
-                ?.toMutableMap()
-                ?.let(partition.dependencies::add)
+            it.toMutableMap().let(partition.dependencies::add)
         }
     }
 
@@ -125,6 +122,8 @@ class VersionedPartitionHandler(
         set(value) {
             partition.options.put("versions", value.joinToString(separator = ","))
         }
+    val requiresFabric : Boolean
+        get() = dependencies.requiresFabric
 
     fun supportVersions(vararg versions: String) {
         supportedVersions += versions.toList()
@@ -135,7 +134,7 @@ class VersionedPartitionHandler(
 open class PartitionDependencyHandler(
     protected val delegate: DependencyHandler,
     val sourceSet: SourceSet,
-    private val addDependency: (Dependency) -> Unit
+    private val addDependency: (Map<String, String>) -> Unit
 ) : DependencyHandler by delegate {
     override fun add(configurationName: String, dependencyNotation: Any): Dependency? {
         return this.add(configurationName, dependencyNotation, null)
@@ -157,21 +156,27 @@ open class PartitionDependencyHandler(
                 it.uppercase()
             }).replaceFirstChar { it.lowercase() }
 
-        return delegate.add(newConfig, newNotation, configureClosure)?.also(addDependency)
+        return delegate.add(newConfig, newNotation, configureClosure)?.also {
+            ExtFrameworkExtension.ermDependency(it)?.let {addDependency(it)}
+        }
     }
 }
 
 class VersionPartitionDependencyHandler(
     delegate: DependencyHandler,
     sourceSet: SourceSet,
+
     private val project: Project,
     private val mappingsType: String,
-    addDependency: (Dependency) -> Unit
+    private val addDependency: (Map<String, String>) -> Unit
 ) : PartitionDependencyHandler(
     delegate,
     sourceSet,
     addDependency
 ) {
+    var requiresFabric = false
+    val extframework = project.extensions.getByType(ExtFrameworkExtension::class.java)
+
     fun minecraft(version: String) {
         val taskName = "generateMinecraft${version}Sources"
         val task = project.tasks.findByName(taskName) ?: project.tasks.create(taskName, GenerateMcSources::class.java) {
@@ -183,6 +188,21 @@ class VersionPartitionDependencyHandler(
             project.files(task.outputs.files.asFileTree).apply {
                 builtBy(task)
             }
+        )
+    }
+
+    fun fabricMod(
+        projectId: String,
+        versionId: String,
+    ) {
+        requiresFabric=true
+        extframework.extensions().require("dev.extframework.integrations:fabric-ext:1.0.1-BETA")
+
+        addDependency(
+            mapOf(
+                "projectId" to projectId,
+                "versionId" to versionId
+            )
         )
     }
 }

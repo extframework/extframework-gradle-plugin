@@ -20,9 +20,9 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import registerGenerateErmTask
 import java.net.URI
 
-internal const val CLIENT_VERSION = "1.0.9-BETA"
+internal const val CLIENT_VERSION = "1.0.10-BETA"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
-internal const val CORE_MC_VERSION = "1.0.14-BETA"
+internal const val CORE_MC_VERSION = "1.0.15-BETA"
 
 class ExtFrameworkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -66,6 +66,8 @@ class ExtFrameworkPlugin : Plugin<Project> {
         project.tasks.register("genMcSources") {
             it.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
         }
+
+//        project.tasks.reg
 
         project.extensions.getByType(JavaPluginExtension::class.java).toolchain.languageVersion.set(JavaLanguageVersion.of(8))
     }

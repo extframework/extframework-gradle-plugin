@@ -8,10 +8,9 @@ import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
 import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.DownloadExtensions
 import dev.extframework.gradle.tasks.GenerateMcSources
-import dev.extframework.internal.api.TOOLING_API_VERSION
-import dev.extframework.internal.api.extension.ExtensionParent
-import dev.extframework.internal.api.extension.ExtensionRuntimeModel
-import dev.extframework.internal.api.extension.PartitionModelReference
+import dev.extframework.tooling.api.TOOLING_API_VERSION
+import dev.extframework.tooling.api.extension.ExtensionParent
+import dev.extframework.tooling.api.extension.PartitionModelReference
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
@@ -129,20 +128,23 @@ abstract class ExtFrameworkExtension(
                 )
             }
 
-            val taskDir = project.projectDir.resolve("build-ext").resolve("fabric").resolve(name)
+            if (handler.requiresFabric) {
+                val taskDir = project.projectDir.resolve("build-ext").resolve("fabric").resolve(name)
 
-            val task = registerFabricModTask(
-                project,
-                partition,
-                handler.mappings.deobfuscatedNamespace,
-                handler.supportedVersions.firstOrNull() ?: throw IllegalArgumentException("Please set at least 1 supported version via the #supportVersions(version: String) method."),
-                taskDir.toPath()
-            )
+                val task = registerFabricModTask(
+                    project,
+                    partition.name,
+                    handler.mappings.deobfuscatedNamespace,
+                    handler.supportedVersions.firstOrNull()
+                        ?: throw IllegalArgumentException("Please set at least 1 supported version via the #supportVersions(version: String) method."),
+                    taskDir.toPath()
+                )
 
-            project.dependencies.add(
-                sourceSet.implementationConfigurationName,
-                project.fileTree(taskDir).builtBy(task)
-            )
+                project.dependencies.add(
+                    sourceSet.implementationConfigurationName,
+                    project.fileTree(taskDir).builtBy(task)
+                )
+            }
         }
     }
 
@@ -160,7 +162,7 @@ abstract class ExtFrameworkExtension(
                 project.name
             },
             project.provider {
-                project.version as? String  ?: throw Exception("No 'project.version' set!")
+                project.version as? String ?: throw Exception("No 'project.version' set!")
             },
             project.newListProperty(),
             project.newSetProperty(),
@@ -169,7 +171,7 @@ abstract class ExtFrameworkExtension(
     }
     private val ermUpdates = ArrayList<Action<MutableExtensionRuntimeModel>>()
 
-    val metadata : Property<MutableExtensionMetadata> = project.property {
+    val metadata: Property<MutableExtensionMetadata> = project.property {
         MutableExtensionMetadata(
             project.property(),
             project.newListProperty(),
@@ -207,12 +209,13 @@ abstract class ExtFrameworkExtension(
             }
         }
     }
+
     fun partitions(action: Action<NamedDomainPartitionContainer>) {
         action.execute(partitions)
     }
 
-    fun extensions(action: Action<ExtensionDependencyHandler>) {
-        action.execute(object : ExtensionDependencyHandler {
+    fun extensions(): ExtensionDependencyHandler {
+        return object : ExtensionDependencyHandler {
             override fun require(notation: String) {
                 eagerModel {
                     val descriptor = SimpleMavenDescriptor.parseDescription(notation)
@@ -227,34 +230,11 @@ abstract class ExtFrameworkExtension(
                     it.dependencies.add(notation)
                 }
             }
+        }
+    }
 
-            override fun fabricMod(
-                name: String,
-                projectId: String,
-                fileId: String,
-            ) {
-                require("dev.extframework.integrations:fabric-ext:1.0-SNAPSHOT")
-
-                project.tasks.withType(DownloadFabricMod::class.java).configureEach {
-                    it.mods.add("curse.maven:$name-$projectId:$fileId")
-                }
-
-                model {
-                    partitions
-                        .map(PartitionHandler<*>::partition)
-                        .filter { it.type == "main" || it.type == "target" }
-                        .forEach { p ->
-                            p.dependencies.add(
-                                mutableMapOf(
-                                    "name" to name,
-                                    "projectId" to projectId,
-                                    "fileId" to fileId
-                                )
-                            )
-                        }
-                }
-            }
-        })
+    fun extensions(action: Action<ExtensionDependencyHandler>) {
+        action.execute(extensions())
     }
 
     fun model(action: Action<MutableExtensionRuntimeModel>) {
@@ -277,7 +257,7 @@ abstract class ExtFrameworkExtension(
     }
 
     internal fun eagerMetadata(action: Action<MutableExtensionMetadata>) {
-         metadata.update {
+        metadata.update {
             it.map { metadata ->
                 action.execute(metadata)
                 metadata
@@ -317,11 +297,11 @@ abstract class ExtFrameworkExtension(
 interface ExtensionDependencyHandler {
     fun require(notation: String)
 
-    fun fabricMod(
-        name: String,
-        projectId: String,
-        fileId: String
-    )
+//    fun fabricMod(
+//        name: String,
+//        projectId: String,
+//        fileId: String
+//    )
 }
 
 abstract class NamedDomainPartitionContainer(

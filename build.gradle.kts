@@ -7,11 +7,11 @@ plugins {
     kotlin("jvm") version "1.9.21"
 
     id("com.gradle.plugin-publish") version "1.2.1"
-    id("dev.extframework.common") version "1.0.35"
+    id("dev.extframework.common") version "1.0.38"
 }
 
 group = "dev.extframework.mc"
-version = "1.2.23"
+version = "1.2.24"
 
 repositories {
     mavenCentral()

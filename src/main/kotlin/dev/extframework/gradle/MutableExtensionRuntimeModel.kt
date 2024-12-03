@@ -1,18 +1,17 @@
 package dev.extframework.gradle
 
 import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
-import dev.extframework.internal.api.extension.ExtensionParent
-import dev.extframework.internal.api.extension.ExtensionRepository
-import dev.extframework.internal.api.extension.ExtensionRuntimeModel
-import dev.extframework.internal.api.extension.PartitionModelReference
-import dev.extframework.internal.api.extension.artifact.ExtensionDescriptor
+import dev.extframework.tooling.api.extension.ExtensionParent
+import dev.extframework.tooling.api.extension.ExtensionRepository
+import dev.extframework.tooling.api.extension.ExtensionRuntimeModel
+import dev.extframework.tooling.api.extension.PartitionModelReference
+import dev.extframework.tooling.api.extension.artifact.ExtensionDescriptor
 import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.SetProperty
-import java.io.Serializable
 
 data class MutableExtensionRuntimeModel(
     val apiVersion: Int,

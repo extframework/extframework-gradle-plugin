@@ -3,6 +3,7 @@
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
+import dev.extframework.common.util.filterDuplicates
 import dev.extframework.common.util.make
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.ExtFrameworkExtension
@@ -10,7 +11,7 @@ import dev.extframework.gradle.util.ListPropertySerializer
 import dev.extframework.gradle.util.MapPropertySerializer
 import dev.extframework.gradle.util.ProviderSerializer
 import dev.extframework.gradle.util.SetPropertySerializer
-import dev.extframework.internal.api.extension.ExtensionRepository
+import dev.extframework.tooling.api.extension.ExtensionRepository
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.file.RegularFileProperty
@@ -64,7 +65,7 @@ abstract class GenerateErm : DefaultTask() {
 
                         else -> throw Exception("Unknown repository type: ${repo::class}")
                     }
-                }
+                }.filterDuplicates()
             )
         }
         val ermAsBytes =
@@ -129,7 +130,7 @@ abstract class GeneratePrm : DefaultTask() {
                     }
 
                 )
-            }
+            }.filterDuplicates()
         )
 
         val prmAsBytes = mapper.writeValueAsBytes(

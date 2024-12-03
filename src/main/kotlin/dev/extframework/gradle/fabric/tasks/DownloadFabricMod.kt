@@ -1,15 +1,37 @@
 package dev.extframework.gradle.fabric.tasks
 
 import com.durganmcbroom.artifact.resolver.Artifact
+import com.durganmcbroom.artifact.resolver.ArtifactMetadata
+import com.durganmcbroom.artifact.resolver.ArtifactMetadata.Descriptor
+import com.durganmcbroom.artifact.resolver.ArtifactMetadata.ParentInfo
+import com.durganmcbroom.artifact.resolver.ArtifactRepository
+import com.durganmcbroom.artifact.resolver.ArtifactRequest
+import com.durganmcbroom.artifact.resolver.MetadataRequestException
+import com.durganmcbroom.artifact.resolver.RepositoryFactory
+import com.durganmcbroom.artifact.resolver.RepositorySettings
 import com.durganmcbroom.artifact.resolver.createContext
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMaven
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactMetadata
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactRequest
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
+import com.durganmcbroom.jobs.Job
+import com.durganmcbroom.jobs.job
 import com.durganmcbroom.jobs.launch
+import com.durganmcbroom.jobs.mapException
+import com.durganmcbroom.jobs.result
 import com.durganmcbroom.resources.Resource
 import com.durganmcbroom.resources.ResourceAlgorithm
+import com.durganmcbroom.resources.ResourceNotFoundException
+import com.durganmcbroom.resources.VerifiedResource
+import com.durganmcbroom.resources.openStream
+import com.durganmcbroom.resources.toResource
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.PropertyNamingStrategies
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.fasterxml.jackson.module.kotlin.readValue
 import dev.extframework.archives.Archives
+import dev.extframework.common.util.Hex
 import dev.extframework.common.util.copyTo
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.MutablePartitionRuntimeModel
@@ -18,16 +40,165 @@ import dev.extframework.gradle.tasks.RemapTask
 import dev.extframework.gradle.write
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.TaskProvider
+import java.net.URI
+import java.net.URLEncoder
 import java.nio.file.Path
 import java.util.*
+
+
+// TODO this is copied from fabric-ext, make a common project that houses this.
+data class ModrinthProjectVersion(
+    val gameVersions: List<String>,
+    val loaders: List<String>,
+    val id: String,
+    val projectId: String,
+    val authorId: String,
+    val featured: Boolean,
+    val name: String,
+    val versionNumber: String,
+    val changelog: String?,
+    val changelogUrl: String?,
+    val datePublished: String,
+    val downloads: Int,
+    val versionType: String,
+    val status: String,
+    val requestedStatus: String?,
+    val files: List<ModrinthProjectVersionFile>,
+    val dependencies: List<ModrinthProjectVersionDependency>
+)
+
+data class ModrinthProjectVersionFile(
+    val hashes: ModrinthProjectVersionHashes,
+    val url: String,
+    val filename: String,
+    val primary: Boolean,
+    val size: Int,
+    val fileType: String?
+)
+
+data class ModrinthProjectVersionHashes(
+    val sha1: String,
+    val sha512: String
+)
+
+data class ModrinthProjectVersionDependency(
+    val versionId: String?,
+    val projectId: String,
+    val fileName: String?,
+    val dependencyType: String
+)
+
+data class ModrinthProjectVersionListing(
+    val id: String
+)
+
+object ModrinthRepositorySettings : RepositorySettings
+
+data class ModrinthModDescriptor(
+    val projectId: String,
+    val versionId: String,
+) : Descriptor {
+    override val name: String = "$projectId:$versionId"
+}
+
+data class ModrinthModArtifactRequest(
+    override val descriptor: ModrinthModDescriptor,
+) : ArtifactRequest<ModrinthModDescriptor>
+
+typealias ModrinthModParentInfo = ArtifactMetadata.ParentInfo<ModrinthModArtifactRequest, ModrinthRepositorySettings>
+
+class ModrinthModArtifactMetadata(
+    descriptor: ModrinthModDescriptor,
+    val resource: Resource,
+    parents: List<ModrinthModParentInfo>
+) : ArtifactMetadata<ModrinthModDescriptor, ModrinthModParentInfo>(
+    descriptor,
+    parents
+)
+
+const val MODRINTH_VERSION_ENDPOINT = "https://api.modrinth.com/v2/version/"
+
+class ModrinthArtifactRepository :
+    ArtifactRepository<ModrinthRepositorySettings, ModrinthModArtifactRequest, ModrinthModArtifactMetadata> {
+    override val factory: RepositoryFactory<ModrinthRepositorySettings, ArtifactRepository<ModrinthRepositorySettings, ModrinthModArtifactRequest, ModrinthModArtifactMetadata>>
+        get() = Modrinth
+    override val name: String = "modrinth"
+    override val settings: ModrinthRepositorySettings = ModrinthRepositorySettings
+    private val mapper = JsonMapper.builder()
+        .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .addModule(KotlinModule.Builder().build())
+        .build()
+
+    private fun encoded(str: String): String {
+        return URLEncoder.encode(str, "UTF-8")
+    }
+
+    override fun get(request: ModrinthModArtifactRequest): Job<ModrinthModArtifactMetadata> = job {
+        val version = mapper.readValue<ModrinthProjectVersion>(result {
+            URI.create(
+                MODRINTH_VERSION_ENDPOINT + request.descriptor.versionId
+            ).toURL().toResource().openStream()
+        }.mapException {
+            if (it is ResourceNotFoundException) {
+                MetadataRequestException.MetadataNotFound(
+                    request.descriptor,
+                    MODRINTH_VERSION_ENDPOINT + request.descriptor.versionId
+                )
+            } else it
+        }.merge())
+
+        val primaryFile = version.files.find {
+            it.primary
+        } ?: version.files.firstOrNull() ?: throw MetadataRequestException.MetadataNotFound(
+            request.descriptor,
+            "primary modrinth file"
+        )
+
+        val rawResource = URI.create(primaryFile.url).toURL().toResource()
+
+        val resource = VerifiedResource(
+            rawResource,
+            ResourceAlgorithm.SHA1,
+            Hex.parseHex(primaryFile.hashes.sha1)
+        )
+
+        val parents = version.dependencies
+            .filter { it.dependencyType == "required" }
+            .mapNotNull {
+                val versionId = it.versionId ?: return@mapNotNull null
+                ModrinthModDescriptor(
+                    it.projectId,
+                    versionId
+                )
+            }
+            .map(::ModrinthModArtifactRequest).map { ModrinthModParentInfo(it, listOf(ModrinthRepositorySettings)) }
+
+        ModrinthModArtifactMetadata(
+            request.descriptor,
+            resource,
+            parents
+        )
+    }
+
+}
+
+object Modrinth : RepositoryFactory<ModrinthRepositorySettings, ModrinthArtifactRepository> {
+    override fun createNew(settings: ModrinthRepositorySettings): ModrinthArtifactRepository {
+        return ModrinthArtifactRepository()
+    }
+}
+
 
 abstract class DownloadFabricMod : DefaultTask() {
     private val basePath = project.projectDir.resolve("build-ext").resolve("fabric-unmapped").toPath()
@@ -40,6 +211,7 @@ abstract class DownloadFabricMod : DefaultTask() {
         basePath
     ).builtBy(this)
 
+
     @TaskAction
     fun download() {
         // TODO Hacky
@@ -49,94 +221,84 @@ abstract class DownloadFabricMod : DefaultTask() {
         }
 
         mods.get().forEach { mod ->
-            project.repositories.firstNotNullOfOrNull {
-                val request = SimpleMavenArtifactRequest(
-                    mod
-                )
+            val repoContext = Modrinth.createContext(ModrinthRepositorySettings)
+            val (projectId, versionId) = mod.split(":")
+            val request = ModrinthModArtifactRequest(
+                ModrinthModDescriptor(projectId, versionId),
+            )
 
-                val baseArtifact = launch {
-                    val contexts = project.repositories.map {
-                        when (it) {
-                            is DefaultMavenLocalArtifactRepository -> SimpleMavenRepositorySettings.local()
-                            is MavenArtifactRepository -> SimpleMavenRepositorySettings.default(
-                                it.url.toString(),
-                                preferredHash = ResourceAlgorithm.SHA1,
-                                requireResourceVerification = false
-                            )
-
-                            else -> throw IllegalArgumentException("Repository type: '${it.name}' is not currently supported.")
-                        }
-                    }.map { SimpleMaven.createContext(it) }
-
-                    val artifact = contexts.firstNotNullOfOrNull {
-                        it.getAndResolve(request)().getOrNull()
-                    }
-
-                    artifact ?: throw IllegalArgumentException("Unable to find fabric mod: '$mod'")
-                }
-
-                fun setupModResource(path: Path, name: String, resource: Resource) {
-                    val jarPath = path resolve name
-                    resource copyTo jarPath
-
-                    Archives.find(jarPath, Archives.Finders.ZIP_FINDER).use { archive ->
-                        archive.reader.entries()
-                            .filter { it.name.endsWith(".jar") }
-                            .forEach {
-                                setupModResource(path resolve "files", it.name.substringAfterLast('/'), it.resource)
-                            }
-
-                        archive.writer.remove("META-INF/MANIFEST.MF")
-
-                        archive.write(jarPath)
-                    }
-                }
-
-                fun setupMod(artifact: Artifact<SimpleMavenArtifactMetadata>) {
-                    val descriptor = artifact.metadata.descriptor
-
-                    val artifactPath = basePath resolve descriptor.artifact resolve descriptor.version
-
-                    val resource = (artifact.metadata.resource
-                        ?: throw Exception("Fabric mod: '$descriptor' does not have a jar associated with it (there is no mod present here.)"))
-
-                    setupModResource(artifactPath, "${descriptor.artifact}-${descriptor.version}.jar", resource)
-
-                    artifact.parents.forEach {
-                        setupMod(it)
-                    }
-                }
-
-                setupMod(baseArtifact)
+            val baseArtifact = launch {
+                repoContext.getAndResolve(request)().mapException {
+                    Exception(
+                        "Unable to find fabric mod: '$mod'",
+                        it
+                    )
+                }.merge()
             }
+
+            fun setupModResource(path: Path, name: String, resource: Resource) {
+                val jarPath = path resolve name
+                resource copyTo jarPath
+
+                Archives.find(jarPath, Archives.Finders.ZIP_FINDER).use { archive ->
+                    archive.reader.entries()
+                        .filter { it.name.endsWith(".jar") }
+                        .forEach {
+                            setupModResource(path resolve "files", it.name.substringAfterLast('/'), it.resource)
+                        }
+
+                    archive.writer.remove("META-INF/MANIFEST.MF")
+
+                    archive.write(jarPath)
+                }
+            }
+
+            fun setupMod(artifact: Artifact<ModrinthModArtifactMetadata>) {
+                val descriptor = artifact.metadata.descriptor
+
+                val artifactPath = basePath resolve descriptor.projectId resolve descriptor.versionId
+
+                val resource = artifact.metadata.resource
+
+                setupModResource(artifactPath, "${descriptor.projectId}-${descriptor.versionId}.jar", resource)
+
+                artifact.parents.forEach {
+                    setupMod(it)
+                }
+            }
+
+            setupMod(baseArtifact)
         }
     }
 }
 
 fun registerFabricModTask(
     project: Project,
-    partition: MutablePartitionRuntimeModel,
+    partition: String,
     mappingTarget: String,
     version: String,
     output: Path
-): TaskProvider<*> {
+): Task {
     val downloadModTask = project.tasks.maybeCreate("downloadFabricMods", DownloadFabricMod::class.java)
 
-    return project.tasks.register(
+    val it = project.tasks.maybeCreate(
         "remap${
-            partition.name.replaceFirstChar {
+            partition.replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase(
                     Locale.getDefault()
                 ) else it.toString()
             }
         }FabricMods", RemapTask::class.java
-    ) {
-        it.dependsOn(downloadModTask)
+    )
 
-        it.input.setFrom(downloadModTask.output)
-        it.mappingIdentifier.set(version)
-        it.sourceNamespace.set(INTERMEDIARY_NAMESPACE)
-        it.targetNamespace.set(mappingTarget)
-        it.output.set(output.toFile())
-    }
+
+    it.dependsOn(downloadModTask)
+
+    it.input.setFrom(downloadModTask.output)
+    it.mappingIdentifier.set(version)
+    it.sourceNamespace.set(INTERMEDIARY_NAMESPACE)
+    it.targetNamespace.set(mappingTarget)
+    it.output.set(output.toFile())
+
+    return it
 }

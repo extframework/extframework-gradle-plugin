@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.20"
-    id("dev.extframework.common") version "1.0.34"
+    id("dev.extframework.mc") version "1.2.24"
+    id("dev.extframework.common") version "1.0.38"
 }
 
 group = "dev.extframework.extension"
@@ -21,10 +21,8 @@ tasks.wrapper {
 }
 
 tasks.launch {
-    executable("/Users/durganmcbroom/Downloads/jdk8u432-b06-jre/Contents/Home/bin/java")
 //    jvmArgs("-XstartOnFirstThread")
     targetNamespace.set("mojang:obfuscated")
-    mcVersion = "1.8.9"
 }
 
 repositories {
@@ -52,12 +50,17 @@ extension {
         description.set("A mod that adds a Mo shield!")
         icon.set("https://cdn.pixabay.com/photo/2023/01/18/10/32/ouch-7726461_640.jpg")
     }
+
     partitions {
         version("latest") {
             supportVersions("1.21")
-            mappings = MinecraftMappings.none
+            mappings = MinecraftMappings.mojang
 
             dependencies {
+                fabricMod(
+                    "P7dR8mSH",
+                    "Oh9IKZRD"
+                    )
                 minecraft("1.21")
             }
         }
