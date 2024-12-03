@@ -1,10 +1,8 @@
 package dev.extframework.gradle
 
-import groovy.lang.Closure
 import dev.extframework.gradle.deobf.MinecraftDeobfuscator
-import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
-import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.GenerateMcSources
+import groovy.lang.Closure
 import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.Project
@@ -13,15 +11,13 @@ import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.tasks.SourceSet
 import org.gradle.util.internal.GUtil
 
-
 abstract class PartitionHandler<T : PartitionDependencyHandler>(
     project: Project,
     val partition: MutablePartitionRuntimeModel,
     val sourceSet: SourceSet,
     // A shorthand for executing configurations just as the configuration block of this partition ends.
-    private val configure: (() -> Unit) -> Unit,
-
-    ) : Named {
+    private val configure: (() -> Unit) -> Unit
+) : Named {
     val generatePrmTaskName: String = "generatePrm${sourceSet.name.replaceFirstChar { it.uppercase() }}"
     protected val extframework: ExtFrameworkExtension = project.extensions.getByType(ExtFrameworkExtension::class.java)
 

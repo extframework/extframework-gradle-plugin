@@ -17,6 +17,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 
 abstract class ExtFrameworkExtension(
@@ -114,9 +115,6 @@ abstract class ExtFrameworkExtension(
                 sourceSet.implementationConfigurationName,
                 sourceSets.getByName("main").output
             )
-            project.dependencies.add(sourceSet.implementationConfigurationName, downloadExtensions.map {
-                it.output
-            })
 
             val handler = doAdd(action) {
                 VersionedPartitionHandler(
@@ -150,7 +148,7 @@ abstract class ExtFrameworkExtension(
 
     internal val sourceSets: SourceSetContainer = project.extensions.getByType(SourceSetContainer::class.java)
 
-    internal val downloadExtensions = project.tasks.register("downloadExtensions", DownloadExtensions::class.java)
+    internal val downloadExtensions: TaskProvider<DownloadExtensions> = project.tasks.register("downloadExtensions", DownloadExtensions::class.java)
 
     val erm: Property<MutableExtensionRuntimeModel> = project.property {
         MutableExtensionRuntimeModel(
