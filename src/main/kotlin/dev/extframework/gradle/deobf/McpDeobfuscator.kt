@@ -21,7 +21,7 @@ class McpDeobfuscator(
         private const val VERSIONS_URL = "https://maven.minecraftforge.net/de/oceanlabs/mcp/versions.json"
     }
 
-    private val parser = MCPMappingParser("mojang:obfuscated", "mcp:deobfuscated")
+    private val parser = MCPMappingParser("mojang:obfuscated", "mcp-legacy:deobfuscated")
 
     override val provider: MappingsProvider = object : MappingsProvider {
         override val namespaces: Set<String> = setOf(parser.srcNamespace, parser.targetNamespace)
@@ -31,7 +31,7 @@ class McpDeobfuscator(
                 ?: throw IllegalArgumentException("Unknown minecraft version: '$identifier'. There are no MCP mappings for this version.")
 
             val mappingsPath = MCPMappingResolver.resolve(
-                path resolve "mcp_$identifier",
+                path resolve "mcp-legacy_$identifier",
                 identifier,
                 channel, mcpId
             )
@@ -44,7 +44,7 @@ class McpDeobfuscator(
     override val deobfuscatedNamespace: String = parser.targetNamespace
 
     override fun getName(): String {
-        return "mcp"
+        return "mcp-legacy"
     }
 
     // Fetches channel, version id
