@@ -1,7 +1,7 @@
 package dev.extframework.gradle.fabric
 
 import com.durganmcbroom.resources.Resource
-import com.durganmcbroom.resources.openStream
+import com.durganmcbroom.resources.toByteArray
 import com.durganmcbroom.resources.toResource
 import dev.extframework.archive.mapper.ArchiveMapping
 import dev.extframework.archive.mapper.MappingsProvider
@@ -11,6 +11,8 @@ import dev.extframework.boot.store.DataStore
 import dev.extframework.boot.store.DelegatingDataStore
 import dev.extframework.common.util.copyTo
 import dev.extframework.common.util.resolve
+import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayInputStream
 import java.net.URL
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
@@ -38,12 +40,11 @@ class FabricMappingProvider(
 internal class RawFabricMappingProvider private constructor(
     val store: DataStore<String, Resource>
 ) : MappingsProvider {
-
     constructor(path: Path) : this(DelegatingDataStore(IntermediaryMappingAccess(path)))
 
     override val namespaces: Set<String> = setOf("named", "intermediary")
 
-    override fun forIdentifier(identifier: String): ArchiveMapping {
+    override fun forIdentifier(identifier: String): ArchiveMapping = runBlocking() {
         val mappingData = store[identifier] ?: run {
             val url = URL("https://raw.githubusercontent.com/FabricMC/intermediary/master/mappings/$identifier.tiny")
 
@@ -52,7 +53,7 @@ internal class RawFabricMappingProvider private constructor(
             resource
         }
 
-        return TinyV1MappingsParser.parse(mappingData.openStream())
+        TinyV1MappingsParser.parse(ByteArrayInputStream(mappingData.open().toByteArray()))
     }
 }
 
@@ -71,6 +72,8 @@ private class IntermediaryMappingAccess(
         val versionPath = path resolve "intermediary-mappings-$key.json"
         versionPath.deleteIfExists()
 
-        value copyTo versionPath
+        runBlocking {
+            value copyTo versionPath
+        }
     }
 }

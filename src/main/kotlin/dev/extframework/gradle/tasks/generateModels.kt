@@ -113,8 +113,6 @@ abstract class GeneratePrm : DefaultTask() {
                     "simple-maven",
                     when (it) {
                         is DefaultMavenLocalArtifactRepository -> {
-                            println(it.url)
-                            println(Paths.get(it.url).toString())
                             mutableMapOf(
                                 "location" to Paths.get(it.url).toString(),
                                 "type" to "local"

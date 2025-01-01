@@ -1,5 +1,7 @@
 package dev.extframework.gradle.tasks
 
+import com.durganmcbroom.jobs.async.AsyncJob
+import com.durganmcbroom.jobs.async.asyncJob
 import com.durganmcbroom.jobs.launch
 import dev.extframework.archive.mapper.ArchiveMapping
 import dev.extframework.archive.mapper.transform.transformArchive
@@ -24,11 +26,11 @@ fun setupMinecraft(
     basePath: Path,
     deobfuscator: MinecraftDeobfuscator,
     mapperType: String // Redundant but we need to make sure...
-): Pair<Path, List<Path>> {
+) = asyncJob {
     val (mcPath, mcJarPath, libMarkerPath) = mcPaths(version, basePath, mapperType)
 
     if (libMarkerPath.exists()) {
-        return mcJarPath to parseDependencyMarker(libMarkerPath)
+        return@asyncJob mcJarPath to parseDependencyMarker(libMarkerPath)
     }
 
     val libsPath = mcPath resolve "libs"
@@ -36,7 +38,7 @@ fun setupMinecraft(
         version,
         mcJarPath,
         libsPath,
-    )
+    )().merge()
 
     val markerContent = libsPath.joinToString(separator = "\n") { it.absolutePathString() }
     libMarkerPath.make()
@@ -52,7 +54,7 @@ fun setupMinecraft(
         deobfuscator.deobfuscatedNamespace
     )
 
-    return metadata.mcPath to metadata.dependencies
+    metadata.mcPath to metadata.dependencies
 }
 
 data class McMetadata(
@@ -74,12 +76,11 @@ private fun mcPaths(
     return Triple(minecraftPath, minecraftJarPath, dependenciesMarker)
 }
 
-
 private fun cacheMinecraft(
     version: String,
     mcJarPath: Path,
     mcLibsPath: Path
-): McMetadata = launch {
+): AsyncJob<McMetadata> = asyncJob() {
     val versionManifest = loadVersionManifest()
 
     val metadata = parseMetadata(

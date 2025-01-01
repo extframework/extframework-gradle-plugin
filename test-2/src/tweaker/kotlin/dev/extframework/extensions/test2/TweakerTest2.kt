@@ -6,8 +6,8 @@ import dev.extframework.tooling.api.environment.ExtensionEnvironment
 import dev.extframework.tooling.api.tweaker.EnvironmentTweaker
 
 class TweakerTest2 : EnvironmentTweaker {
-    override fun tweak(environment: ExtensionEnvironment): Job<Unit> {
-        TODO("Not yet implemented")
+    override fun tweak(environment: ExtensionEnvironment): Job<Unit> = job() {
+//        TODO("Not yet implemented")
     }
 
     companion object {

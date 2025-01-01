@@ -1,30 +1,12 @@
 package dev.extframework.gradle.fabric.tasks
 
-import com.durganmcbroom.artifact.resolver.Artifact
-import com.durganmcbroom.artifact.resolver.ArtifactMetadata
+import com.durganmcbroom.artifact.resolver.*
 import com.durganmcbroom.artifact.resolver.ArtifactMetadata.Descriptor
-import com.durganmcbroom.artifact.resolver.ArtifactMetadata.ParentInfo
-import com.durganmcbroom.artifact.resolver.ArtifactRepository
-import com.durganmcbroom.artifact.resolver.ArtifactRequest
-import com.durganmcbroom.artifact.resolver.MetadataRequestException
-import com.durganmcbroom.artifact.resolver.RepositoryFactory
-import com.durganmcbroom.artifact.resolver.RepositorySettings
-import com.durganmcbroom.artifact.resolver.createContext
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMaven
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactMetadata
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactRequest
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
-import com.durganmcbroom.jobs.Job
-import com.durganmcbroom.jobs.job
+import com.durganmcbroom.jobs.async.AsyncJob
+import com.durganmcbroom.jobs.async.asyncJob
 import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.jobs.mapException
-import com.durganmcbroom.jobs.result
-import com.durganmcbroom.resources.Resource
-import com.durganmcbroom.resources.ResourceAlgorithm
-import com.durganmcbroom.resources.ResourceNotFoundException
-import com.durganmcbroom.resources.VerifiedResource
-import com.durganmcbroom.resources.openStream
-import com.durganmcbroom.resources.toResource
+import com.durganmcbroom.resources.*
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.json.JsonMapper
@@ -32,24 +14,21 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import dev.extframework.archives.Archives
 import dev.extframework.common.util.Hex
-import dev.extframework.common.util.copyTo
 import dev.extframework.common.util.resolve
-import dev.extframework.gradle.MutablePartitionRuntimeModel
 import dev.extframework.gradle.fabric.FabricMappingProvider.Companion.INTERMEDIARY_NAMESPACE
 import dev.extframework.gradle.tasks.RemapTask
 import dev.extframework.gradle.write
+import kotlinx.coroutines.runBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
-import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
 import org.gradle.api.provider.ListProperty
-import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFiles
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.TaskProvider
+import java.io.ByteArrayInputStream
+import java.io.InputStream
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.file.Path
@@ -144,11 +123,11 @@ class ModrinthArtifactRepository :
         return URLEncoder.encode(str, "UTF-8")
     }
 
-    override fun get(request: ModrinthModArtifactRequest): Job<ModrinthModArtifactMetadata> = job {
-        val version = mapper.readValue<ModrinthProjectVersion>(result {
+    override fun get(request: ModrinthModArtifactRequest): AsyncJob<ModrinthModArtifactMetadata> = asyncJob() {
+        val version = mapper.readValue<ModrinthProjectVersion>(runCatching {
             URI.create(
                 MODRINTH_VERSION_ENDPOINT + request.descriptor.versionId
-            ).toURL().toResource().openStream()
+            ).toURL().toResource().open().toByteArray()
         }.mapException {
             if (it is ResourceNotFoundException) {
                 MetadataRequestException.MetadataNotFound(
@@ -236,15 +215,15 @@ abstract class DownloadFabricMod : DefaultTask() {
                 }.merge()
             }
 
-            fun setupModResource(path: Path, name: String, resource: Resource) {
+            fun setupModResource(path: Path, name: String, resource: InputStream) {
                 val jarPath = path resolve name
-                resource copyTo jarPath
+                resource.copyTo(jarPath.toFile().outputStream())
 
                 Archives.find(jarPath, Archives.Finders.ZIP_FINDER).use { archive ->
                     archive.reader.entries()
                         .filter { it.name.endsWith(".jar") }
                         .forEach {
-                            setupModResource(path resolve "files", it.name.substringAfterLast('/'), it.resource)
+                            setupModResource(path resolve "files", it.name.substringAfterLast('/'), it.open())
                         }
 
                     archive.writer.remove("META-INF/MANIFEST.MF")
@@ -253,21 +232,24 @@ abstract class DownloadFabricMod : DefaultTask() {
                 }
             }
 
-            fun setupMod(artifact: Artifact<ModrinthModArtifactMetadata>) {
+            suspend fun setupMod(artifact: Artifact<ModrinthModArtifactMetadata>) {
                 val descriptor = artifact.metadata.descriptor
 
                 val artifactPath = basePath resolve descriptor.projectId resolve descriptor.versionId
 
                 val resource = artifact.metadata.resource
 
-                setupModResource(artifactPath, "${descriptor.projectId}-${descriptor.versionId}.jar", resource)
+                setupModResource(artifactPath, "${descriptor.projectId}-${descriptor.versionId}.jar",
+                    ByteArrayInputStream(resource.open().toByteArray()))
 
                 artifact.parents.forEach {
                     setupMod(it)
                 }
             }
 
-            setupMod(baseArtifact)
+            runBlocking {
+                setupMod(baseArtifact)
+            }
         }
     }
 }

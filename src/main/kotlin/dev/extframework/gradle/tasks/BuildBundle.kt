@@ -2,7 +2,6 @@ package dev.extframework.gradle.tasks
 
 import GenerateErm
 import com.durganmcbroom.resources.Resource
-import com.durganmcbroom.resources.openStream
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.KotlinModule
@@ -56,22 +55,20 @@ abstract class BuildBundle : DefaultTask() {
         archive.writer.put(
             ArchiveReference.Entry(
                 "erm.json",
-                Resource("<heap>") {
-                    FileInputStream(project.tasks.withType(GenerateErm::class.java).getByName("generateErm").ermPath)
-                },
                 false,
                 archive
-            )
+            ) {
+                FileInputStream(project.tasks.withType(GenerateErm::class.java).getByName("generateErm").ermPath)
+            }
         )
         archive.writer.put(
             ArchiveReference.Entry(
                 "metadata.json",
-                Resource("<heap>") {
-                    ByteArrayInputStream(mapper.writeValueAsBytes(metadata))
-                },
                 false,
                 archive
-            )
+            ) {
+                ByteArrayInputStream(mapper.writeValueAsBytes(metadata))
+            }
         )
 
         extframework.partitions.forEach { partition ->
@@ -79,12 +76,11 @@ abstract class BuildBundle : DefaultTask() {
                 archive.writer.put(
                     ArchiveReference.Entry(
                         "${partition.name}.${file.extension}",
-                        Resource("<heap>") {
-                            FileInputStream(file)
-                        },
                         false,
                         archive
-                    )
+                    ) {
+                        FileInputStream(file)
+                    }
                 )
             }
 
@@ -92,12 +88,11 @@ abstract class BuildBundle : DefaultTask() {
                 archive.writer.put(
                     ArchiveReference.Entry(
                         "${partition.name}.${file.extension}",
-                        Resource("<heap>") {
-                            FileInputStream(file)
-                        },
                         false,
                         archive
-                    )
+                    ) {
+                        FileInputStream(file)
+                    }
                 )
             }
         }
@@ -122,18 +117,17 @@ abstract class BuildBundle : DefaultTask() {
             .filterNot { it.isDirectory }
             .forEach { entry ->
                 val digest = engine.digest(
-                    entry.resource.openStream().readInputStream(),
+                    entry.open().readInputStream(),
                 )
 
                 entry.handle.writer.put(
                     ArchiveReference.Entry(
                         entry.name + "." + hashType,
-                        Resource("<heap>") {
-                            Hex.formatHex(digest).byteInputStream()
-                        },
                         false,
                         entry.handle
-                    )
+                    ) {
+                        Hex.formatHex(digest).byteInputStream()
+                    }
                 )
 
                 engine.reset()

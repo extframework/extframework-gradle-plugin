@@ -4,13 +4,12 @@ import dev.extframework.gradle.common.toolingApi
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.extframework
 import dev.extframework.gradle.publish.ExtensionPublication
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.24"
-    id("dev.extframework.common") version "1.0.38"
+    id("dev.extframework.mc") version "1.2.26"
+    id("dev.extframework.common") version "1.0.43"
 }
 
 group = "dev.extframework.extension"
@@ -21,8 +20,13 @@ tasks.wrapper {
 }
 
 tasks.launch {
-//    jvmArgs("-XstartOnFirstThread")
-    targetNamespace.set("mojang:obfuscated")
+    mcVersion = "1.21.4"
+    targetNamespace.set(MinecraftMappings.mojang.deobfuscatedNamespace)
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+//    executable("/Users/durganmcbroom/Library/Application Support/minecraft/.extframework/yakclient/runtime/jre-8/Contents/Home/bin/java")
+//    jvmArgs("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
 }
 
 repositories {
@@ -53,26 +57,38 @@ extension {
 
     partitions {
         version("latest") {
-            supportVersions("1.21")
+            supportVersions("1.21.4")
+            mappings = MinecraftMappings.none
+
+            dependencies {
+//                fabricMod(
+//                    "P7dR8mSH",
+//                    "Oh9IKZRD"
+//                    )
+                minecraft("1.21.4")
+            }
+        }
+        version("latest1") {
+            supportVersions("1.21.4")
             mappings = MinecraftMappings.mojang
 
             dependencies {
-                fabricMod(
-                    "P7dR8mSH",
-                    "Oh9IKZRD"
-                    )
-                minecraft("1.21")
+//                fabricMod(
+//                    "P7dR8mSH",
+//                    "Oh9IKZRD"
+//                    )
+                minecraft("1.21.4")
             }
         }
 
-        version("legacy") {
-            supportVersions("1.8.9")
-            mappings = MinecraftMappings.mcpLegacy
-
-            dependencies {
-                minecraft("1.8.9")
-            }
-        }
+//        version("legacy") {
+//            supportVersions("1.8.9")
+//            mappings = MinecraftMappings.mcpLegacy
+//
+//            dependencies {
+//                minecraft("1.8.9")
+//            }
+//        }
 
         main {
             extensionClass = "dev.extframework.extensions.test2.MyExtension2"
@@ -115,9 +131,8 @@ tasks.test {
     useJUnitPlatform()
 }
 
-//java {
-//    toolchain {
-//        vendor = JvmVendorSpec.matching("Eclipse Temurin")
-//        languageVersion.set(JavaLanguageVersion.of(8))
-//    }
-//}
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+}

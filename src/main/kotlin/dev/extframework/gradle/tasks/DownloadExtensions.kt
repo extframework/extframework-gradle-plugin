@@ -19,6 +19,7 @@ import dev.extframework.tooling.api.extension.artifact.ExtensionArtifactRequest
 import dev.extframework.tooling.api.extension.artifact.ExtensionDescriptor
 import dev.extframework.tooling.api.extension.partition.artifact.PartitionArtifactRequest
 import dev.extframework.tooling.api.extension.partition.artifact.PartitionDescriptor
+import kotlinx.coroutines.runBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.ConfigurableFileTree
@@ -80,7 +81,7 @@ abstract class DownloadExtensions : DefaultTask() {
 
                 val partitionFactory = PartitionRepositoryFactory(extensionFactory)
 
-                fun downloadArtifact(artifact: Artifact<*>) {
+                suspend fun downloadArtifact(artifact: Artifact<*>) {
                     val extensionArtifactMetadata = artifact.metadata as ExtensionArtifactMetadata
                     val erm = extensionArtifactMetadata.erm
 
@@ -103,6 +104,7 @@ abstract class DownloadExtensions : DefaultTask() {
                                 erm.name resolve
                                 erm.version resolve
                                 "$jarPrefix-${partitionRef.name}.jar"
+
                         req.resource?.copyTo(path)
                     }
 
@@ -111,7 +113,9 @@ abstract class DownloadExtensions : DefaultTask() {
                     }
                 }
 
-                downloadArtifact(baseArtifact)
+                runBlocking {
+                    downloadArtifact(baseArtifact)
+                }
             }
         }
     }

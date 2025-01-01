@@ -1,8 +1,11 @@
 package dev.extframework.gradle.tasks
 
+import BootLoggerFactory
+import com.durganmcbroom.jobs.launch
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.ExtFrameworkExtension
 import dev.extframework.gradle.mavenLocal
+import kotlinx.coroutines.runBlocking
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -41,12 +44,16 @@ abstract class GenerateMcSources : DefaultTask() {
     @TaskAction
     fun generateSources() {
         val extframework = project.extensions.getByName("extension") as ExtFrameworkExtension
-        setupMinecraft(
-            minecraftVersion.orNull
-                ?: throw IllegalArgumentException("Minecraft version for minecraft source generation not set! This task name was: '${this.name}'."),
-            basePath,
-            extframework.mappingProviders.findByName(mappingProvider.get()) ?: throw java.lang.IllegalArgumentException("Unknown mapping provider: '${mappingProvider.get()}'"),
-            mappingProvider.get()
-        )
+        launch(BootLoggerFactory()) {
+            runBlocking {
+                setupMinecraft(
+                    minecraftVersion.orNull
+                        ?: throw IllegalArgumentException("Minecraft version for minecraft source generation not set!"),
+                    basePath,
+                    extframework.mappingProviders.findByName(mappingProvider.get()) ?: throw java.lang.IllegalArgumentException("Unknown mapping provider: '${mappingProvider.get()}'"),
+                    mappingProvider.get()
+                )().merge()
+            }
+        }
     }
 }
