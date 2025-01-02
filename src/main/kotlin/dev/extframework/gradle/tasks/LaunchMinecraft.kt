@@ -29,7 +29,9 @@ import org.gradle.api.tasks.TaskAction
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
+import kotlin.io.path.deleteRecursively
 
 private fun getHomedir(): Path {
     return getMinecraftDir() resolve ".extframework"
@@ -100,12 +102,18 @@ abstract class LaunchMinecraft : JavaExec() {
         .convention(mutableMapOf("auth_access_token" to ""))
 
     @TaskAction
+    @ExperimentalPathApi
     override fun exec() = launch(BootLoggerFactory()) {
         runBlocking {
             val extframework = project.extensions.getByType(ExtFrameworkExtension::class.java)
+
+            val mcDir = getMinecraftDir()
+            val binDir = mcDir resolve "bin"
+            binDir.deleteRecursively()
+
             val env = setupMinecraft(
                 mcVersion.get(),
-                getMinecraftDir()
+                mcDir
             )().merge()
 
             val devMode = (project.findProperty("devMode") as? String)?.toBoolean() ?: false
@@ -114,7 +122,7 @@ abstract class LaunchMinecraft : JavaExec() {
             val (desc, repo) = preCacheExtension(project, extframework)
 
             classpath(path)
-            workingDir(getMinecraftDir().toFile())
+            workingDir(mcDir.toFile())
 
             val mcVersion = mcVersion.orNull ?: project.findProperty("mcVersion") as String
             val extensionPath = extframework.project.layout.buildDirectory.get().asFile.toPath() resolve "extension"
@@ -138,7 +146,7 @@ abstract class LaunchMinecraft : JavaExec() {
             val values = mapOf(
                 "version" to mcVersion,
                 "version_name" to mcVersion,
-                "game_directory" to getMinecraftDir().toString(),
+                "game_directory" to mcDir.toString(),
                 "assets_root" to env.assets.toString(),
                 "assets_index_name" to env.assetIndex,
                 "natives_directory" to env.nativesDir.toString(),
