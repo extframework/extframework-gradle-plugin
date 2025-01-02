@@ -8,8 +8,8 @@ import dev.extframework.gradle.publish.ExtensionPublication
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.26"
-    id("dev.extframework.common") version "1.0.43"
+    id("dev.extframework.mc") version "1.2.29"
+    id("dev.extframework.common") version "1.0.45"
 }
 
 group = "dev.extframework.extension"
@@ -81,14 +81,14 @@ extension {
             }
         }
 
-//        version("legacy") {
-//            supportVersions("1.8.9")
-//            mappings = MinecraftMappings.mcpLegacy
-//
-//            dependencies {
-//                minecraft("1.8.9")
-//            }
-//        }
+        version("legacy") {
+            supportVersions("1.8.9")
+            mappings = MinecraftMappings.mcpLegacy
+
+            dependencies {
+                minecraft("1.8.9")
+            }
+        }
 
         main {
             extensionClass = "dev.extframework.extensions.test2.MyExtension2"
