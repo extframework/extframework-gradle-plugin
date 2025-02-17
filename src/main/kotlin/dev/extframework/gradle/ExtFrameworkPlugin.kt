@@ -20,9 +20,9 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import registerGenerateErmTask
 import java.net.URI
 
-internal const val CLIENT_VERSION = "1.1-BETA"
+internal const val CLIENT_VERSION = "1.1.2-BETA"
 internal const val CLIENT_MAIN_CLASS = "dev.extframework.client.MainKt"
-internal const val CORE_MC_VERSION = "1.0.18-BETA"
+internal const val CORE_MC_VERSION = "1.0-BETA"
 
 class ExtFrameworkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -38,7 +38,7 @@ class ExtFrameworkPlugin : Plugin<Project> {
                 extframework.partitions.flatMap { p ->
                     listOf(
                         project.tasks.getByName(p.sourceSet.jarTaskName),
-                        project.tasks.getByName(p.generatePrmTaskName)
+//                        project.tasks.getByName(p.generatePrmTaskName)
                     )
                 }
             })

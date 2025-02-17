@@ -1,16 +1,13 @@
 package dev.extframework.gradle
 
-import GeneratePrm
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import dev.extframework.gradle.deobf.MinecraftDeobfuscator
 import dev.extframework.gradle.deobf.MinecraftMappings
-import dev.extframework.gradle.fabric.tasks.DownloadFabricMod
 import dev.extframework.gradle.fabric.tasks.registerFabricModTask
 import dev.extframework.gradle.tasks.DownloadExtensions
 import dev.extframework.gradle.tasks.GenerateMcSources
 import dev.extframework.tooling.api.TOOLING_API_VERSION
 import dev.extframework.tooling.api.extension.ExtensionParent
-import dev.extframework.tooling.api.extension.PartitionModelReference
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
@@ -29,10 +26,11 @@ abstract class ExtFrameworkExtension(
 
             val handler = getHandler(toConfigure::add)
 
+
             add(handler)
             eagerModel {
                 it.partitions.add(
-                    PartitionModelReference(handler.partition.type, handler.partition.name)
+                    handler.partition
                 )
             }
 
@@ -47,12 +45,13 @@ abstract class ExtFrameworkExtension(
                     it.dependsOn(project.tasks.withType(GenerateMcSources::class.java))
                     it.archiveClassifier.set(handler.name)
                 }
-            project.tasks.register(
-                handler.generatePrmTaskName,
-                GeneratePrm::class.java
-            ) {
-                it.partitionName.set(handler.name)
-            }
+
+//            project.tasks.register(
+//                handler.generatePrmTaskName,
+//                GeneratePrm::class.java
+//            ) {
+//                it.partitionName.set(handler.name)
+//            }
 
             action.execute(handler)
             toConfigure.forEach { it() }
@@ -101,9 +100,9 @@ abstract class ExtFrameworkExtension(
             }
         }
 
-        override fun version(name: String, action: Action<VersionedPartitionHandler>) {
+        override fun version(name: String, action: Action<MinecraftPartitionHandler>) {
             val partition = MutablePartitionRuntimeModel(
-                "target",
+                "minecraft",
                 name,
                 project.newListProperty(),
                 project.newSetProperty(),
@@ -117,7 +116,7 @@ abstract class ExtFrameworkExtension(
             )
 
             val handler = doAdd(action) {
-                VersionedPartitionHandler(
+                MinecraftPartitionHandler(
                     project,
                     partition,
                     sourceSet,
@@ -195,7 +194,7 @@ abstract class ExtFrameworkExtension(
         )
 
         extensions {
-            it.require("dev.extframework.extension:core-mc:$CORE_MC_VERSION")
+            it.require("dev.extframework.core:minecraft:$CORE_MC_VERSION")
         }
 
         project.afterEvaluate {
@@ -309,5 +308,5 @@ abstract class NamedDomainPartitionContainer(
 
     abstract fun tweaker(action: Action<TweakerPartitionHandler>)
 
-    abstract fun version(name: String, action: Action<VersionedPartitionHandler>)
+    abstract fun version(name: String, action: Action<MinecraftPartitionHandler>)
 }

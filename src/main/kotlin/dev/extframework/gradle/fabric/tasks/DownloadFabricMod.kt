@@ -200,14 +200,14 @@ abstract class DownloadFabricMod : DefaultTask() {
         }
 
         mods.get().forEach { mod ->
-            val repoContext = Modrinth.createContext(ModrinthRepositorySettings)
+            val repoContext = Modrinth.createContext()
             val (projectId, versionId) = mod.split(":")
             val request = ModrinthModArtifactRequest(
                 ModrinthModDescriptor(projectId, versionId),
             )
 
             val baseArtifact = launch {
-                repoContext.getAndResolve(request)().mapException {
+                repoContext.getAndResolve(request, ModrinthRepositorySettings)().mapException {
                     Exception(
                         "Unable to find fabric mod: '$mod'",
                         it

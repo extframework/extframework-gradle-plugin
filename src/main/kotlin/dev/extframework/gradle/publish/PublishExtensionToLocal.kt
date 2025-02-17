@@ -42,7 +42,7 @@ fun registerPublishExtensionToLocalTask(
         extension.afterFinalized { e ->
             it.artifactId = e.erm.get().name.get()
             e.partitions.forEach { partition ->
-                it.artifact(tasks.named(partition.generatePrmTaskName)).classifier = partition.name
+//                it.artifact(tasks.named(partition.generatePrmTaskName)).classifier = partition.name
                 it.artifact(tasks.named(partition.sourceSet.jarTaskName)).classifier = partition.name
             }
         }

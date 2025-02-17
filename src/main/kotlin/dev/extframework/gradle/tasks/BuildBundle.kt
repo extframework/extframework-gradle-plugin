@@ -84,17 +84,17 @@ abstract class BuildBundle : DefaultTask() {
                 )
             }
 
-            project.tasks.named(partition.generatePrmTaskName).get().outputs.files.forEach { file ->
-                archive.writer.put(
-                    ArchiveReference.Entry(
-                        "${partition.name}.${file.extension}",
-                        false,
-                        archive
-                    ) {
-                        FileInputStream(file)
-                    }
-                )
-            }
+//            project.tasks.named(partition.generatePrmTaskName).get().outputs.files.forEach { file ->
+//                archive.writer.put(
+//                    ArchiveReference.Entry(
+//                        "${partition.name}.${file.extension}",
+//                        false,
+//                        archive
+//                    ) {
+//                        FileInputStream(file)
+//                    }
+//                )
+//            }
         }
 
         val entries = archive.reader.entries().toMutableList()

@@ -18,7 +18,7 @@ abstract class PartitionHandler<T : PartitionDependencyHandler>(
     // A shorthand for executing configurations just as the configuration block of this partition ends.
     private val configure: (() -> Unit) -> Unit
 ) : Named {
-    val generatePrmTaskName: String = "generatePrm${sourceSet.name.replaceFirstChar { it.uppercase() }}"
+    //    val generatePrmTaskName: String = "generatePrm${sourceSet.name.replaceFirstChar { it.uppercase() }}"
     protected val extframework: ExtFrameworkExtension = project.extensions.getByType(ExtFrameworkExtension::class.java)
 
     abstract val dependencies: T
@@ -85,7 +85,7 @@ class TweakerPartitionHandler(
         }
 }
 
-class VersionedPartitionHandler(
+class MinecraftPartitionHandler(
     project: Project,
     partition: MutablePartitionRuntimeModel,
     sourceSet: SourceSet,
@@ -118,8 +118,13 @@ class VersionedPartitionHandler(
         set(value) {
             partition.options.put("versions", value.joinToString(separator = ","))
         }
-    val requiresFabric : Boolean
+    val requiresFabric: Boolean
         get() = dependencies.requiresFabric
+    var entrypoint: String?
+        get() = partition.options.getting("entrypoint").orNull
+        set(value) {
+            if (value != null) partition.options.put("entrypoint", value)
+        }
 
     fun supportVersions(vararg versions: String) {
         supportedVersions += versions.toList()
@@ -153,7 +158,7 @@ open class PartitionDependencyHandler(
             }).replaceFirstChar { it.lowercase() }
 
         return delegate.add(newConfig, newNotation, configureClosure)?.also {
-            ExtFrameworkExtension.ermDependency(it)?.let {addDependency(it)}
+            ExtFrameworkExtension.ermDependency(it)?.let { addDependency(it) }
         }
     }
 }
@@ -180,7 +185,8 @@ class VersionPartitionDependencyHandler(
             it.minecraftVersion.set(version)
         }
 
-        delegate.add(sourceSet.implementationConfigurationName,
+        delegate.add(
+            sourceSet.implementationConfigurationName,
             project.files(task.outputs.files.asFileTree).apply {
                 builtBy(task)
             }
@@ -191,7 +197,7 @@ class VersionPartitionDependencyHandler(
         projectId: String,
         versionId: String,
     ) {
-        requiresFabric=true
+        requiresFabric = true
         extframework.extensions().require("dev.extframework.integrations:fabric-ext:1.0.1-BETA")
 
         addDependency(

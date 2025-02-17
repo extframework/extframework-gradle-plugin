@@ -3,6 +3,7 @@ package dev.extframework.gradle.tasks
 import com.durganmcbroom.artifact.resolver.Artifact
 import com.durganmcbroom.artifact.resolver.ArtifactException
 import com.durganmcbroom.artifact.resolver.ResolutionContext
+import com.durganmcbroom.artifact.resolver.createContext
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
 import com.durganmcbroom.jobs.launch
 import com.durganmcbroom.resources.ResourceAlgorithm
@@ -48,6 +49,7 @@ abstract class DownloadExtensions : DefaultTask() {
             dependencyType.register("simple-maven", MavenResolverProvider())
 
             val extensionFactory = ExtensionRepositoryFactory(dependencyType)
+            val context = extensionFactory.createContext()
 
             val request = ExtensionArtifactRequest(
                 ExtensionDescriptor.parseDescriptor(
@@ -55,6 +57,7 @@ abstract class DownloadExtensions : DefaultTask() {
                 )
             )
 
+            // TODO all of this needs to be redone
             launch {
                 val artifact = project.repositories.map {
                     when (it) {
@@ -66,12 +69,8 @@ abstract class DownloadExtensions : DefaultTask() {
 
                         else -> throw IllegalArgumentException("Repository type: '${it.name}' is not currently supported.")
                     }
-                }.map(extensionFactory::createNew).map {
-                    ResolutionContext(
-                        it,
-                    )
-                }.firstNotNullOfOrNull {
-                    val result = it.getAndResolve(request)()
+                }.firstNotNullOfOrNull { it ->
+                    val result = context.getAndResolve(request, it)()
                     result.getOrNull() ?: if (result.exceptionOrNull() !is ArtifactException.ArtifactNotFound)
                         throw result.exceptionOrNull()!!
                     else null
@@ -79,7 +78,10 @@ abstract class DownloadExtensions : DefaultTask() {
 
                 val baseArtifact = artifact ?: throw IllegalArgumentException("Unable to find extension: '$dependency'")
 
-                val partitionFactory = PartitionRepositoryFactory(extensionFactory)
+                // TODO not in the slightest way correct
+                val partitionFactory = PartitionRepositoryFactory { desc, settings ->
+                    artifact.metadata.erm.namedPartitions[desc.partition]
+                }
 
                 suspend fun downloadArtifact(artifact: Artifact<*>) {
                     val extensionArtifactMetadata = artifact.metadata as ExtensionArtifactMetadata

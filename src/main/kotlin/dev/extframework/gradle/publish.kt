@@ -8,6 +8,6 @@ fun MavenPublication.withExtension(project: Project) {
 
     project.extensions.getByType(ExtFrameworkExtension::class.java).partitions.forEach {
         artifact(project.tasks.named(it.sourceSet.jarTaskName)).classifier = it.name
-        artifact(project.tasks.named(it.generatePrmTaskName)).classifier = it.name
+//        artifact(project.tasks.named(it.generatePrmTaskName)).classifier = it.name
     }
 }

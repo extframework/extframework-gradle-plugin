@@ -4,14 +4,9 @@ import com.durganmcbroom.artifact.resolver.simple.maven.layout.mavenLocal
 import dev.extframework.tooling.api.extension.ExtensionParent
 import dev.extframework.tooling.api.extension.ExtensionRepository
 import dev.extframework.tooling.api.extension.ExtensionRuntimeModel
-import dev.extframework.tooling.api.extension.PartitionModelReference
 import dev.extframework.tooling.api.extension.artifact.ExtensionDescriptor
 import org.gradle.api.Action
-import org.gradle.api.provider.ListProperty
-import org.gradle.api.provider.MapProperty
-import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
-import org.gradle.api.provider.SetProperty
+import org.gradle.api.provider.*
 
 data class MutableExtensionRuntimeModel(
     val apiVersion: Int,
@@ -22,9 +17,9 @@ data class MutableExtensionRuntimeModel(
     val repositories: ListProperty<Map<String, String>>,
     val parents: SetProperty<ExtensionParent>,
 
-    val partitions: SetProperty<PartitionModelReference>
+    val partitions: SetProperty<MutablePartitionRuntimeModel>
 ) {
-    fun partitions(action: Action<PartitionModelReference>) {
+    fun partitions(action: Action<MutablePartitionRuntimeModel>) {
         (partitions.orNull ?: emptySet()).forEach { partition ->
             action.execute(partition)
         }

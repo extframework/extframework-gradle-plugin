@@ -1,5 +1,5 @@
-import dev.extframework.gradle.common.coreApi
 import dev.extframework.gradle.common.dm.jobs
+import dev.extframework.gradle.common.mixin
 import dev.extframework.gradle.common.toolingApi
 import dev.extframework.gradle.deobf.MinecraftMappings
 import dev.extframework.gradle.extframework
@@ -8,8 +8,8 @@ import dev.extframework.gradle.publish.ExtensionPublication
 plugins {
     kotlin("jvm") version "1.9.21"
     id("maven-publish")
-    id("dev.extframework.mc") version "1.2.29"
-    id("dev.extframework.common") version "1.0.45"
+    id("dev.extframework.mc") version "1.2.31"
+    id("dev.extframework.common") version "1.0.49"
 }
 
 group = "dev.extframework.extension"
@@ -25,8 +25,8 @@ tasks.launch {
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
-//    executable("/Users/durganmcbroom/Library/Application Support/minecraft/.extframework/yakclient/runtime/jre-8/Contents/Home/bin/java")
-//    jvmArgs("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
+    maxHeapSize = "2G"
+//    jvmArgs("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005")
 }
 
 repositories {
@@ -58,21 +58,10 @@ extension {
     partitions {
         version("latest") {
             supportVersions("1.21.4")
-            mappings = MinecraftMappings.none
-
-            dependencies {
-//                fabricMod(
-//                    "P7dR8mSH",
-//                    "Oh9IKZRD"
-//                    )
-                minecraft("1.21.4")
-            }
-        }
-        version("latest1") {
-            supportVersions("1.21.4")
             mappings = MinecraftMappings.mojang
 
             dependencies {
+                mixin()
 //                fabricMod(
 //                    "P7dR8mSH",
 //                    "Oh9IKZRD"
@@ -80,7 +69,6 @@ extension {
                 minecraft("1.21.4")
             }
         }
-
         version("legacy") {
             supportVersions("1.8.9")
             mappings = MinecraftMappings.mcpLegacy
@@ -93,7 +81,8 @@ extension {
         main {
             extensionClass = "dev.extframework.extensions.test2.MyExtension2"
             dependencies {
-                coreApi()
+                implementation("dev.extframework.core:entrypoint:1.0-BETA")
+//                coreApi()
             }
         }
 

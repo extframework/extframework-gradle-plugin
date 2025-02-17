@@ -139,9 +139,9 @@ abstract class LaunchMinecraft : JavaExec() {
             )
             args(":")
 
-            if (Files.exists(extensionPath)) {
-                extensionPath.toFile().deleteRecursively()
-            }
+//            if (Filess.exists(extensionPath)) {
+//                extensionPath.toFile().deleteRecursively()
+//            }
 
             val values = mapOf(
                 "version" to mcVersion,

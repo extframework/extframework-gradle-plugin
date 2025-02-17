@@ -14,6 +14,7 @@ import dev.extframework.gradle.util.SetPropertySerializer
 import dev.extframework.tooling.api.extension.ExtensionRepository
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.artifacts.repositories.ArtifactRepository
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenArtifactRepository
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
@@ -35,7 +36,7 @@ abstract class GenerateErm : DefaultTask() {
 
     @get:OutputFile
     val ermPath: File =
-        (project.layout.buildDirectory.asFile.get().toPath() resolve  "libs" resolve "erm.json").toFile()
+        (project.layout.buildDirectory.asFile.get().toPath() resolve "libs" resolve "erm.json").toFile()
 
     @TaskAction
     fun generateErm() {
@@ -52,21 +53,20 @@ abstract class GenerateErm : DefaultTask() {
         extframework.eagerModel {
             it.repositories.addAll(
                 project.repositories.map { repo ->
-                    when (repo) {
-                        is DefaultMavenLocalArtifactRepository -> mutableMapOf(
-                            "location" to Paths.get(repo.url).toString(),
-                            "type" to "local"
-                        )
-
-                        is DefaultMavenArtifactRepository -> mutableMapOf(
-                            "location" to repo.url.toString(),
-                            "type" to "default"
-                        )
-
-                        else -> throw Exception("Unknown repository type: ${repo::class}")
-                    }
+                    serialize(repo)
                 }.filterDuplicates()
             )
+
+            it.partitions { partition ->
+                partition.repositories.addAll(
+                    project.repositories.map {
+                        ExtensionRepository(
+                            "simple-maven",
+                            serialize(it)
+                        )
+                    }.filterDuplicates()
+                )
+            }
         }
         val ermAsBytes =
             mapper.writeValueAsBytes(extframework.erm.get())
@@ -74,71 +74,63 @@ abstract class GenerateErm : DefaultTask() {
         ermPath.toPath().make()
         ermPath.writeBytes(ermAsBytes)
     }
-}
 
-abstract class GeneratePrm : DefaultTask() {
-    private val extframework
-        get() = project.extensions.getByName("extension") as ExtFrameworkExtension
-
-    @get:Input
-    abstract val partitionName: Property<String>
-
-    @get:OutputFile
-    val prmPath: RegularFileProperty =
-        project.objects.fileProperty()
-            .convention(project.layout.buildDirectory.file(
-                project.provider { "libs/prm//${partitionName.get()}-prm.json" }
-            ))
-
-
-    @TaskAction
-    fun generatePrm() {
-        val mapper = ObjectMapper()
-            .registerModule(KotlinModule.Builder().build())
-            .registerModule(
-                SimpleModule()
-                    .addSerializer(Property::class.java, ProviderSerializer())
-                    .addSerializer(SetProperty::class.java, SetPropertySerializer())
-                    .addSerializer(MapProperty::class.java, MapPropertySerializer())
-                    .addSerializer(ListProperty::class.java, ListPropertySerializer())
-            )
-
-        val partition = extframework.partitions
-            .first { it.partition.name == partitionName.get() }
-            .partition
-
-        partition.repositories.addAll(
-            project.repositories.map {
-                ExtensionRepository(
-                    "simple-maven",
-                    when (it) {
-                        is DefaultMavenLocalArtifactRepository -> {
-                            mutableMapOf(
-                                "location" to Paths.get(it.url).toString(),
-                                "type" to "local"
-                            )
-                        }
-
-                        is DefaultMavenArtifactRepository -> mutableMapOf(
-                            "location" to it.url.toString(),
-                            "type" to "default"
-                        )
-
-                        else -> throw Exception("Unknown repository type: ${it::class}")
-                    }
-
-                )
-            }.filterDuplicates()
+    private fun serialize(repo: ArtifactRepository): MutableMap<String, String> = when (repo) {
+        is DefaultMavenLocalArtifactRepository -> mutableMapOf(
+            "location" to Paths.get(repo.url).toString(),
+            "type" to "local"
         )
 
-        val prmAsBytes = mapper.writeValueAsBytes(
-            partition
+        is DefaultMavenArtifactRepository -> mutableMapOf(
+            "location" to repo.url.toString(),
+            "type" to "default"
         )
 
-        val path = prmPath.asFile.get()
-        path.toPath().make()
-        path.writeBytes(prmAsBytes)
+        else -> throw Exception("Unknown repository type: ${repo::class}")
     }
 }
+
+//abstract class GeneratePrm : DefaultTask() {
+//    private val extframework
+//        get() = project.extensions.getByName("extension") as ExtFrameworkExtension
+//
+//    @get:Input
+//    abstract val partitionName: Property<String>
+//
+//    @get:OutputFile
+//    val prmPath: RegularFileProperty =
+//        project.objects.fileProperty()
+//            .convention(
+//                project.layout.buildDirectory.file(
+//                project.provider { "libs/prm//${partitionName.get()}-prm.json" }
+//            ))
+//
+//
+//    @TaskAction
+//    fun generatePrm() {
+//        val mapper = ObjectMapper()
+//            .registerModule(KotlinModule.Builder().build())
+//            .registerModule(
+//                SimpleModule()
+//                    .addSerializer(Property::class.java, ProviderSerializer())
+//                    .addSerializer(SetProperty::class.java, SetPropertySerializer())
+//                    .addSerializer(MapProperty::class.java, MapPropertySerializer())
+//                    .addSerializer(ListProperty::class.java, ListPropertySerializer())
+//            )
+//
+//        val partition = extframework.partitions
+//            .first { it.partition.name == partitionName.get() }
+//            .partition
+//
+//
+//        val prmAsBytes = mapper.writeValueAsBytes(
+//            partition
+//        )
+//
+//        val path = prmPath.asFile.get()
+//        path.toPath().make()
+//        path.writeBytes(prmAsBytes)
+//    }
+//}
 
 internal fun Project.registerGenerateErmTask() = tasks.register("generateErm", GenerateErm::class.java)
