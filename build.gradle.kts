@@ -1,73 +1,18 @@
-import dev.extframework.gradle.common.*
-import dev.extframework.gradle.common.dm.artifactResolver
-import dev.extframework.gradle.common.dm.jobs
+import dev.extframework.gradle.common.extFramework
 
 plugins {
-    `java-gradle-plugin`
-    kotlin("jvm") version "1.9.21"
+    kotlin("jvm") version "2.1.10"
 
-    id("com.gradle.plugin-publish") version "1.2.1"
-    id("dev.extframework.common") version "1.0.50"
+    id("dev.extframework") version "1.3.0" apply false
+    id("dev.extframework.common") version "1.0.52"
 }
-
-group = "dev.extframework.mc"
-version = "1.2.32"
 
 repositories {
     mavenCentral()
     extFramework()
+    mavenLocal()
 }
 
 tasks.wrapper {
     gradleVersion = "8.6-rc-1"
-}
-
-dependencies {
-    artifactResolver(maven = true)
-    archiveMapper(transform = true, tiny = true, proguard = true, mcpLegacy = true)
-    launcherMetaHandler()
-    archives()
-    commonUtil()
-    boot()
-    extLoader()
-    toolingApi()
-    objectContainer()
-    jobs()
-
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.14.0")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation(kotlin("stdlib"))
-    implementation(kotlin("reflect"))
-
-    testImplementation(kotlin("test"))
-}
-
-gradlePlugin {
-    website = "https://github.com/extframework"
-    vcsUrl = "https://github.com/extframework/extframework-gradle-plugin"
-
-    plugins {
-        create("extframework") {
-            id = "dev.extframework.mc"
-            implementationClass = "dev.extframework.gradle.ExtFrameworkPlugin"
-            displayName = "YakClient"
-            description = "YakClient Gradle Plugin"
-        }
-    }
-}
-
-common {
-    defaultJavaSettings()
-    publishing {
-        repositories {
-            extFramework(credentials = propertyCredentialProvider, type = RepositoryType.RELEASES)
-        }
-    }
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(8))
-    }
 }
