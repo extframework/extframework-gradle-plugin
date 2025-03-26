@@ -17,6 +17,7 @@ fun registerPublishExtensionToLocalTask(
         project.afterEvaluate {
             for (partition in extension.partitions) {
                 pub.artifact(tasks.named(partition.sourceSet.jarTaskName)).classifier = partition.name
+                pub.artifact(tasks.named(partition.sourceSet.sourcesJarTaskName)).classifier = partition.name + "-sources"
             }
         }
 

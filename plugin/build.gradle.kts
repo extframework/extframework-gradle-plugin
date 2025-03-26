@@ -1,8 +1,7 @@
 import dev.extframework.gradle.common.*
 import dev.extframework.gradle.common.dm.artifactResolver
 import dev.extframework.gradle.common.dm.jobs
-import org.gradle.kotlin.dsl.provideDelegate
-import org.jetbrains.kotlin.gradle.utils.extendsFrom
+import org.gradle.kotlin.dsl.DependencyHandlerScope
 
 plugins {
     `java-gradle-plugin`
@@ -13,7 +12,7 @@ plugins {
     id("com.gradleup.shadow") version "9.0.0-beta10"
 }
 
-group = "dev.extframework.tools"
+group = "dev.extframework"
 version = "1.3.0"
 
 repositories {
@@ -35,7 +34,6 @@ fun DependencyHandlerScope.jackson(
 }
 
 dependencies {
-    // TODO this is not correct, also 2.12.3 has issues, but required to run rn
     constraints {
         implementation("com.fasterxml.jackson.core:jackson-core") {
             version {
@@ -45,19 +43,19 @@ dependencies {
     }
 
     boot(configurationName = "shadow", version = "3.6.2-SNAPSHOT")
-    extLoader(configurationName = "shadow",version = "2.1.17-SNAPSHOT")
-    toolingApi(configurationName = "shadow",version = "1.0.8-SNAPSHOT")
+    extLoader(configurationName = "shadow", version = "2.1.17-SNAPSHOT")
+    toolingApi(configurationName = "shadow", version = "1.0.8-SNAPSHOT")
 
-    artifactResolver(configurationName = "shadow",maven = true)
-    archiveMapper(configurationName = "shadow",transform = true, tiny = true, proguard = true, mcpLegacy = true)
-    launcherMetaHandler(configurationName = "shadow",)
-    archives(configurationName = "shadow",)
-    commonUtil(configurationName = "shadow",)
-    toolingApi(configurationName = "shadow",)
-    objectContainer(configurationName = "shadow",)
+    artifactResolver(configurationName = "shadow", maven = true)
+    archiveMapper(configurationName = "shadow", transform = true, tiny = true, proguard = true, mcpLegacy = true)
+    launcherMetaHandler(configurationName = "shadow")
+    archives(configurationName = "shadow")
+    commonUtil(configurationName = "shadow")
+    toolingApi(configurationName = "shadow")
+    objectContainer(configurationName = "shadow")
     jobs(configurationName = "shadow")
 
-    shadow(project(":gradle-api"))
+    shadow(project(":api"))
     jackson("com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.18.3")
     jackson("com.fasterxml.jackson.core:jackson-core:2.18.3")
     jackson("com.fasterxml.jackson.core:jackson-databind:2.18.3")
@@ -69,10 +67,9 @@ dependencies {
 
     shadow("commons-io:commons-io:2.18.0")
 
-
     testImplementation(kotlin("test"))
     commonUtil(configurationName = "testImplementation")
-    toolingApi(configurationName = "testImplementation",version = "1.0.8-SNAPSHOT")
+    toolingApi(configurationName = "testImplementation", version = "1.0.8-SNAPSHOT")
 }
 
 val listAllDependencies by tasks.registering(ListAllDependencies::class)
@@ -103,8 +100,6 @@ gradlePlugin {
 }
 
 tasks.jar {
-//    dependsOn(tasks.shadowJar)
-//    from(tasks.shadowJar.get().archiveFile.get().asFile)
     isEnabled = false
 }
 
@@ -113,6 +108,14 @@ common {
     publishing {
         repositories {
             extFramework(credentials = propertyCredentialProvider, type = RepositoryType.RELEASES)
+        }
+    }
+}
+
+publishing {
+    publications {
+       create<MavenPublication>("pluginMaven") {
+            artifactId = "gradle-plugin"
         }
     }
 }

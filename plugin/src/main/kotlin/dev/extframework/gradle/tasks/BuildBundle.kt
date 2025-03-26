@@ -81,6 +81,17 @@ abstract class BuildBundle : DefaultTask() {
                     }
                 )
             }
+            project.tasks.named(partition.sourceSet.sourcesJarTaskName).get().outputs.files.forEach { file ->
+                archive.writer.put(
+                    ArchiveReference.Entry(
+                        "${partition.name}-sources.${file.extension}",
+                        false,
+                        archive
+                    ) {
+                        FileInputStream(file)
+                    }
+                )
+            }
         }
 
         val entries = archive.reader.entries().toMutableList()

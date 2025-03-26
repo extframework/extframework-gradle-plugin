@@ -39,6 +39,7 @@ common {
         }
 
         publication {
+            artifactId = "gradle-api"
             withJava()
             withSources()
             withDokka()

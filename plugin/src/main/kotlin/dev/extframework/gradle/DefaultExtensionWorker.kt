@@ -1,10 +1,8 @@
 package dev.extframework.gradle
 
-import BootLoggerFactory
 import com.durganmcbroom.artifact.resolver.ArtifactMetadata
 import com.durganmcbroom.jobs.async.AsyncJob
 import com.durganmcbroom.jobs.async.asyncJob
-import com.durganmcbroom.jobs.launch
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -23,6 +21,7 @@ import dev.extframework.gradle.api.ExtensionWorker
 import dev.extframework.gradle.api.ExtframeworkExtension
 import dev.extframework.gradle.api.ExtensionConfig
 import dev.extframework.gradle.api.GradleEntrypoint
+import dev.extframework.gradle.api.descriptor
 import dev.extframework.gradle.partition.GradlePartitionLoader
 import dev.extframework.gradle.partition.GradlePartitionNode
 import dev.extframework.gradle.tasks.GenerateErm
@@ -39,7 +38,6 @@ import dev.extframework.tooling.api.extension.partition.artifact.PartitionArtifa
 import dev.extframework.tooling.api.extension.partition.artifact.PartitionDescriptor
 import dev.extframework.tooling.api.extension.partition.artifact.partitionNamed
 import dev.extframework.tooling.api.uber.*
-import kotlinx.coroutines.runBlocking
 import org.apache.commons.io.FileUtils
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -112,7 +110,7 @@ abstract class DefaultExtensionWorker(
             erm
         )
 
-        val projectParents = config.parents.filter {
+        val parentBuilds = config.parents.filter {
             it.value.isProjectBuild
         }.entries.associate {
             val parentProject = extension.project.project(it.key)
@@ -126,11 +124,13 @@ abstract class DefaultExtensionWorker(
             parentDescriptor to parentExtension
         }
 
-        for ((_, parentProject) in projectParents) {
+        for ((_, parentProject) in parentBuilds) {
             setupPartitions(
                 parentProject
             )().merge()
         }
+
+        val accessibleBuilds = parentBuilds + (extension.model.descriptor to extension)
 
         val repository = ExtensionRepositorySettings.local(
             path = repoDir.toString()
@@ -162,7 +162,7 @@ abstract class DefaultExtensionWorker(
                     val dependencyDescriptor = it.descriptor
 
                     if (dependencyDescriptor is PartitionDescriptor) {
-                        val parentProject = projectParents[dependencyDescriptor.extension]
+                        val parentProject = accessibleBuilds[dependencyDescriptor.extension]
 
                         if (parentProject != null) {
                             val parentSourceSet =

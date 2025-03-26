@@ -49,7 +49,7 @@ public data class MutableExtensionRuntimeModel(
 }
 
 public val MutableExtensionRuntimeModel.descriptor : ExtensionDescriptor
-    get() = ExtensionDescriptor.parseDescriptor("$groupId:$name:$version")
+    get() = ExtensionDescriptor.parseDescriptor("${groupId.get()}:${name.get()}:${version.get()}")
 
 public data class MutablePartitionRuntimeModel(
     val type: String,

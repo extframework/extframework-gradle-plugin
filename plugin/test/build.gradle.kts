@@ -33,7 +33,7 @@ extension {
         }
         main {
             dependencies {
-
+                implementation("dev.extframework.core:entrypoint:1.0-BETA")
             }
         }
     }

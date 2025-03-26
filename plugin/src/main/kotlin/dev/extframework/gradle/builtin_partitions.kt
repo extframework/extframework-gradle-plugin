@@ -115,6 +115,14 @@ class DefaultPartitionContainer(
             handler.sourceSet.jarTaskName,
             Jar::class.java
         )
+        project.tasks.create(
+            handler.sourceSet.sourcesJarTaskName,
+            Jar::class.java
+        ) {
+            it.from(handler.sourceSet.allSource)
+            it.archiveClassifier.set(handler.name + "-sources")
+        }
+
         project.tasks
             .withType(Jar::class.java)
             .named(handler.sourceSet.jarTaskName).configure {

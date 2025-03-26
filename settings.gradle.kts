@@ -1,4 +1,4 @@
-rootProject.name = "dev"
+rootProject.name = "gradle"
 
 pluginManagement {
     repositories {
@@ -18,13 +18,9 @@ plugins {
 }
 
 include(":plugin")
-findProject(":plugin")?.name = "extframework-gradle-plugin"
-include("client")
-findProject(":client")?.name = "dev-client"
+findProject(":plugin")
 include("api")
-findProject(":api")?.name = "gradle-api"
-include("tools")
+findProject(":api")
 
-include(":extframework-gradle-plugin:test-2")
-include(":extframework-gradle-plugin:test")
-include("extension")
+include(":plugin:test-2")
+include(":plugin:test")
