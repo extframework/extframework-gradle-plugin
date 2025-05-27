@@ -28,6 +28,7 @@ internal fun setupProject(
             extframework.partitions.flatMap { p ->
                 listOf(
                     project.tasks.getByName(p.sourceSet.jarTaskName),
+                    project.tasks.getByName(p.sourceSet.sourcesJarTaskName),
                 )
             }
         })

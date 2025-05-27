@@ -8,6 +8,7 @@ pluginManagement {
         maven {
             url = uri("https://maven.extframework.dev/snapshots")
         }
+        mavenLocal()
         mavenCentral()
         gradlePluginPortal()
     }
