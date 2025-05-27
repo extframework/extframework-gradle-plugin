@@ -1,32 +1,32 @@
 package dev.extframework.gradle
 
-import BootLoggerFactory
-import com.durganmcbroom.jobs.launch
-import dev.extframework.gradle.api.ExtensionWorker
-import dev.extframework.gradle.api.ExtframeworkExtension
-import dev.extframework.gradle.api.MutableExtensionMetadata
-import dev.extframework.gradle.api.MutableExtensionRuntimeModel
-import dev.extframework.gradle.api.NamedDomainPartitionContainer
-import dev.extframework.gradle.config.getTomlConfig
-import dev.extframework.gradle.config.parseTomlConfig
+import dev.extframework.gradle.api.*
+import dev.extframework.gradle.api.ExtframeworkExtension.BuildCache
 import dev.extframework.gradle.api.util.newListProperty
 import dev.extframework.gradle.api.util.newMapProperty
 import dev.extframework.gradle.api.util.newSetProperty
 import dev.extframework.gradle.api.util.property
-import dev.extframework.gradle.util.setupProject
+import dev.extframework.gradle.config.getTomlConfig
+import dev.extframework.gradle.config.parseTomlConfig
 import dev.extframework.tooling.api.ExtensionLoader
 import dev.extframework.tooling.api.TOOLING_API_VERSION
-import kotlinx.coroutines.runBlocking
+import dev.extframework.tooling.api.environment.ExtensionEnvironment
+import dev.extframework.tooling.api.extension.ExtensionNode
+import dev.extframework.tooling.api.extension.partition.ExtensionPartitionContainer
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSetContainer
 
-abstract class DefaultExtframeworkExtension(
+internal open class DefaultExtframeworkExtension(
     override val project: Project,
-    override val worker: ExtensionWorker
+    override val worker: EnvironmentInitializer,
 ) : ExtframeworkExtension {
     override val configuration = parseTomlConfig(getTomlConfig(project.layout.projectDirectory.asFile.toPath()))
-    val loader: ExtensionLoader by worker::loader
+
+    override val loader: ExtensionLoader = ExtensionLoader(
+        worker.dataDir,
+        this
+    )
 
     override val partitions = DefaultPartitionContainer(this)
     override val sourceSets: SourceSetContainer by lazy { project.extensions.getByType(SourceSetContainer::class.java) }
@@ -55,30 +55,33 @@ abstract class DefaultExtframeworkExtension(
         project.property(),
         project.newListProperty()
     )
+    override val defaultEnvironment = BuildEnvironment(
+        loader.rootEnvironment.compose(
+            "${project.path} root"
+        ), this
+    )
+    override val environments: MutableList<BuildEnvironment> = arrayListOf(
+        BuildEnvironment(
+            defaultEnvironment, this
+        )
+    )
+    override val build: BuildCache = BuildCache(
+        ArrayList(),
+        ArrayList(),
+        ArrayList(),
+        ArrayList(),
+        ArrayList(),
+    )
+//    override val parentPlugins: MutableList<String> = ArrayList()
+//    override val parents: MutableList<ExtensionNode> = ArrayList<ExtensionNode>()
+    override val finalizationActions: MutableList<Action<ExtframeworkExtension>> = ArrayList()
 
-    init {
-        // Possibly change to just after when this build has been evaluated?
-        project.gradle.projectsEvaluated {
-            launch(BootLoggerFactory()) {
-                runBlocking {
-                    worker.setupPartitions(this@DefaultExtframeworkExtension)().merge()
-                }
-            }
-        }
+    override fun finalizedBy(action: Action<ExtframeworkExtension>) {
+        finalizationActions.add(action)
     }
 
-    private var initialized = false
-    override fun initialize() {
-        if (initialized) return
-        initialized = true
-
-        launch(BootLoggerFactory()) {
-            runBlocking {
-                worker.initialize(this@DefaultExtframeworkExtension)().merge()
-            }
-        }
-
-        setupProject(project, this)
+    init {
+        loader.environmentRegistry.register(defaultEnvironment.name, defaultEnvironment)
     }
 
     override fun partitions(action: Action<NamedDomainPartitionContainer>) {

@@ -1,14 +1,6 @@
 package dev.extframework.gradle
 
-import dev.extframework.extloader.extension.partition.TweakerPartitionNode
-import dev.extframework.gradle.api.ExtframeworkExtension
-import dev.extframework.gradle.api.GradlePartitionHandler
-import dev.extframework.gradle.api.MutablePartitionRuntimeModel
-import dev.extframework.gradle.api.NamedDomainPartitionContainer
-import dev.extframework.gradle.api.PartitionDependencyHandler
-import dev.extframework.gradle.api.PartitionHandler
-import dev.extframework.gradle.api.TweakerPartitionHandler
-import dev.extframework.gradle.partition.GradlePartitionNode
+import dev.extframework.gradle.api.*
 import dev.extframework.gradle.api.util.newListProperty
 import dev.extframework.gradle.api.util.newMapProperty
 import dev.extframework.gradle.api.util.newSetProperty
@@ -26,22 +18,6 @@ class DefaultTweakerPartitionHandler(
         project.dependencies, sourceSet
     ) {
         partition.dependencies.add(it)
-    }
-
-    init {
-        extframework.worker.loader.loaded
-            .flatMap {
-                it.partitions.mapNotNull {
-                    when (it.node) {
-                        is TweakerPartitionNode -> (it.node as TweakerPartitionNode).jarPath
-                        else -> null
-                    }
-                }
-            }
-            .map { project.files(it) }
-            .forEach {
-                project.dependencies.add(sourceSet.implementationConfigurationName, it)
-            }
     }
 
     override var tweakerClass: String
@@ -64,23 +40,6 @@ class DefaultGradlePartitionHandler(
         partition.dependencies.add(it)
     }
 
-    init {
-        extframework.worker.loader.loaded
-            .flatMap {
-                it.partitions.mapNotNull {
-                    when (it.node) {
-                        is GradlePartitionNode -> (it.node as GradlePartitionNode).jarPath
-                        is TweakerPartitionNode -> (it.node as TweakerPartitionNode).jarPath
-                        else -> null
-                    }
-                }
-            }
-            .map { project.files(it) }
-            .forEach {
-                project.dependencies.add(sourceSet.implementationConfigurationName, it)
-            }
-    }
-
     override var entrypointClass: String
         get() {
             return model.options.getting("entrypoint").get()
@@ -89,7 +48,6 @@ class DefaultGradlePartitionHandler(
             model.options.put("entrypoint", value)
         }
 }
-
 
 class DefaultPartitionContainer(
     extension: ExtframeworkExtension

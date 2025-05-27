@@ -28,6 +28,10 @@ public data class MutableExtensionRuntimeModel(
         }
     }
 
+    public fun partition(name: String, action: Action<MutablePartitionRuntimeModel>) {
+        partitions.get().find { it.name == name }?.let { action.execute(it) }
+    }
+
     public fun attribute(key: String, value: Any) {
         attributes.put(key, value.toString())
     }
@@ -57,7 +61,7 @@ public data class MutablePartitionRuntimeModel(
     val name: String,
 
     val repositories: ListProperty<ExtensionRepository>,
-    val dependencies: SetProperty<Dependency>,
+    val dependencies: SetProperty<EvaluatingDependency>,
 
     val options: MapProperty<String, String>
 ) {
@@ -67,9 +71,29 @@ public data class MutablePartitionRuntimeModel(
             name,
             repositories.get(),
             dependencies.get().mapNotNullTo(HashSet()) {
-                ermDependency(it)
+                it.evaluate()
             },
             options.get()
         )
+    }
+}
+
+public sealed interface EvaluatingDependency {
+    public fun evaluate() : Map<String, String>?
+
+    public data class Raw(
+        val contents: Map<String, String>
+    ) : EvaluatingDependency {
+        override fun evaluate(): Map<String, String> {
+            return contents
+        }
+    }
+
+    public data class GradleArtifact(
+        val artifact: Dependency
+    ) : EvaluatingDependency {
+        override fun evaluate(): Map<String, String>? {
+            return ermDependency(artifact)
+        }
     }
 }

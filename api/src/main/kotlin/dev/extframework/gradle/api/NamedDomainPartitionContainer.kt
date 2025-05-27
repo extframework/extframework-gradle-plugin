@@ -10,7 +10,11 @@ public abstract class NamedDomainPartitionContainer(
     public abstract fun <T : PartitionHandler<*>> doAdd(action: Action<T>, getHandler: ((() -> Unit) -> Unit) -> T): T
 
     public abstract fun tweaker(action: Action<TweakerPartitionHandler>)
+
     public abstract fun gradle(action: Action<GradlePartitionHandler>)
 
+    public fun has(name: String) : Boolean {
+        return findByName(name) != null
+    }
 //    abstract fun version(name: String, action: Action<MinecraftPartitionHandler>)
 }

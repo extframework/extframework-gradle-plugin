@@ -9,7 +9,7 @@ import org.gradle.util.internal.GUtil
 public open class PartitionDependencyHandler(
     protected val delegate: DependencyHandler,
     public val sourceSet: SourceSet,
-    private val addDependency: (Dependency) -> Unit
+    public val addDependency: (EvaluatingDependency) -> Unit
 ) : DependencyHandler by delegate {
     override fun add(configurationName: String, dependencyNotation: Any): Dependency? {
         return this.add(configurationName, dependencyNotation, null)
@@ -20,10 +20,6 @@ public open class PartitionDependencyHandler(
         dependencyNotation: Any,
         configureClosure: Closure<*>?
     ): Dependency? {
-        val newNotation = when (dependencyNotation) {
-            else -> dependencyNotation
-        }
-
         val newConfig =
             ((if (sourceSet.name == SourceSet.MAIN_SOURCE_SET_NAME)
                 ""
@@ -31,8 +27,10 @@ public open class PartitionDependencyHandler(
                 it.uppercase()
             }).replaceFirstChar { it.lowercase() }
 
-        return delegate.add(newConfig, newNotation, configureClosure)?.also {
-            addDependency(it)
+        return delegate.add(newConfig, dependencyNotation, configureClosure)?.also {
+            // TODO more inclusive/elegant solution?
+            if (configurationName != "compileOnly")
+                addDependency(EvaluatingDependency.GradleArtifact(it))
         }
     }
 }

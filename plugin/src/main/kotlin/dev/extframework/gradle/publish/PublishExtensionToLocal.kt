@@ -13,8 +13,8 @@ fun registerPublishExtensionToLocalTask(
     val publish = project.extensions.getByType(PublishingExtension::class.java)
 
     publish.publications.register("local-${project.name}", MavenPublication::class.java) { pub ->
-        pub.artifactId = extension.model.name.get()
         project.afterEvaluate {
+            pub.artifactId = extension.model.name.get()
             for (partition in extension.partitions) {
                 pub.artifact(tasks.named(partition.sourceSet.jarTaskName)).classifier = partition.name
                 pub.artifact(tasks.named(partition.sourceSet.sourcesJarTaskName)).classifier = partition.name + "-sources"

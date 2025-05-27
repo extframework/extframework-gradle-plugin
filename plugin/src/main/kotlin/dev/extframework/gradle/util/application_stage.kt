@@ -14,9 +14,10 @@ import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 
 
 internal fun setupProject(
-    project: Project,
     extframework: ExtframeworkExtension,
 ) {
+    val project = extframework.project
+
     project.plugins.apply(MavenPublishPlugin::class.java)
     project.plugins.apply(JvmEcosystemPlugin::class.java)
 

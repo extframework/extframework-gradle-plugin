@@ -1,18 +1,34 @@
 package dev.extframework.gradle.api
 
+import dev.extframework.tooling.api.ExtensionLoader
+import dev.extframework.tooling.api.extension.ExtensionNode
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSetContainer
 
 public interface ExtframeworkExtension {
+    public val worker: EnvironmentInitializer
+    public val loader: ExtensionLoader
+
     public val project: Project
-    public val worker: ExtensionWorker
+
     public val configuration: ExtensionConfig
     public val model: MutableExtensionRuntimeModel
-    public val sourceSets: SourceSetContainer
-    public val partitions : NamedDomainPartitionContainer
     public val metadata: MutableExtensionMetadata
 
+    public val sourceSets: SourceSetContainer
+    public val partitions: NamedDomainPartitionContainer
+
+    public val defaultEnvironment: BuildEnvironment
+
+    public val environments: MutableList<BuildEnvironment>
+
+//    public val parents: MutableList<ExtensionNode>
+    public val build: BuildCache
+
+    public val finalizationActions: List<Action<ExtframeworkExtension>>
+
+    public fun finalizedBy(action: Action<ExtframeworkExtension>)
 
     public fun partitions(action: Action<NamedDomainPartitionContainer>)
 
@@ -20,5 +36,11 @@ public interface ExtframeworkExtension {
 
     public fun metadata(action: Action<MutableExtensionMetadata>)
 
-    public fun initialize()
+    public data class BuildCache(
+        public val parents: MutableList<ExtensionNode>,
+        public val plugins: MutableList<String>,
+        public val tweakers: MutableList<String>,
+        public val fingerprint: MutableList<String>,
+        public val content: MutableList<String>
+    )
 }

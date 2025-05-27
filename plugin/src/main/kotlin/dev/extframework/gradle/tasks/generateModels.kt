@@ -8,15 +8,21 @@ import dev.extframework.common.util.filterDuplicates
 import dev.extframework.common.util.make
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.ExtframeworkPlugin.Companion.EXTFRAMEWORK_CENTRAL
+import dev.extframework.gradle.api.ExtensionConfig
 import dev.extframework.gradle.api.ExtframeworkExtension
+import dev.extframework.gradle.api.MutableExtensionRuntimeModel
 import dev.extframework.tooling.api.extension.ExtensionParent
 import dev.extframework.tooling.api.extension.ExtensionRepository
 import dev.extframework.tooling.api.extension.ExtensionRuntimeModel
 import dev.extframework.tooling.api.extension.PartitionRuntimeModel
+import org.gradle.api.Action
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
 import org.gradle.api.artifacts.repositories.ArtifactRepository
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenArtifactRepository
 import org.gradle.api.internal.artifacts.repositories.DefaultMavenLocalArtifactRepository
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import java.io.File
@@ -36,7 +42,9 @@ abstract class GenerateErm : DefaultTask() {
 
     @TaskAction
     fun generateErm() {
-        val model = setupModel(extframework)
+        val model = setupModel(
+            extframework
+        )
 
         val ermAsBytes = writeErm(model)
 
@@ -60,12 +68,19 @@ abstract class GenerateErm : DefaultTask() {
             abstract val namedPartitions: Map<String, PartitionRuntimeModel>
         }
 
+
         fun setupModel(
             extension: ExtframeworkExtension,
         ): ExtensionRuntimeModel {
-            val project = extension.project
+            return setupModel(extension.configuration, extension.project, extension.model)
+        }
 
-            val model = extension.model.toImmutable()
+        fun setupModel(
+            configuration: ExtensionConfig,
+            project: Project,
+            model: MutableExtensionRuntimeModel
+        ): ExtensionRuntimeModel {
+            val model = model.toImmutable()
 
             val partitionRepositories = project.repositories.map {
                 ExtensionRepository(
@@ -76,8 +91,8 @@ abstract class GenerateErm : DefaultTask() {
 
             val extensionRepositories = ArrayList<Map<String, String>>()
             val parents = ArrayList<ExtensionParent>()
-            val configuredRepositories = extension.configuration.repositories
-            for ((name, attr) in extension.configuration.parents) {
+            val configuredRepositories = configuration.repositories
+            for ((name, attr) in configuration.parents) {
                 val repository = when (attr.repository) {
                     "local" -> mutableMapOf(
                         "location" to mavenLocal,
@@ -96,7 +111,7 @@ abstract class GenerateErm : DefaultTask() {
                 }
                 extensionRepositories.add(repository)
 
-                val parent =  if (attr.isProjectBuild) {
+                val parent = if (attr.isProjectBuild) {
                     val parentProject = project.project(name)
                     val extension = parentProject.extensions.getByType(ExtframeworkExtension::class.java)
                     ExtensionParent(
@@ -116,22 +131,28 @@ abstract class GenerateErm : DefaultTask() {
             }
             // TODO want this?
             if (configuredRepositories.local) {
-                extensionRepositories.add(mutableMapOf(
-                    "location" to mavenLocal,
-                    "type" to "local"
-                ))
+                extensionRepositories.add(
+                    mutableMapOf(
+                        "location" to mavenLocal,
+                        "type" to "local"
+                    )
+                )
             }
             if (configuredRepositories.central) {
-                extensionRepositories.add(mutableMapOf(
-                    "location" to EXTFRAMEWORK_CENTRAL,
-                    "type" to "default"
-                ))
+                extensionRepositories.add(
+                    mutableMapOf(
+                        "location" to EXTFRAMEWORK_CENTRAL,
+                        "type" to "default"
+                    )
+                )
             }
             for (entry in configuredRepositories.custom) {
-                extensionRepositories.add(mutableMapOf(
-                    "location" to configuredRepositories.custom[entry.value]!!,
-                    "type" to "default"
-                ))
+                extensionRepositories.add(
+                    mutableMapOf(
+                        "location" to configuredRepositories.custom[entry.value]!!,
+                        "type" to "default"
+                    )
+                )
             }
 
             return model.copy(
@@ -139,7 +160,7 @@ abstract class GenerateErm : DefaultTask() {
                 parents = (parents + model.parents).toSet(),
                 partitions = model.partitions.mapTo(HashSet()) {
                     it.copy(
-                        repositories = partitionRepositories
+                        repositories = it.repositories + partitionRepositories
                     )
                 }
             )

@@ -1,3 +1,5 @@
+import dev.extframework.gradle.common.archives
+import dev.extframework.gradle.common.boot
 import dev.extframework.gradle.common.dm.artifactResolver
 import dev.extframework.gradle.common.extFramework
 import dev.extframework.gradle.common.toolingApi
@@ -7,7 +9,7 @@ plugins {
     id("dev.extframework.common")
 }
 group = "dev.extframework"
-version = "1.0-BETA"
+version = "1.0.1-BETA"
 
 repositories {
     mavenCentral()
@@ -17,10 +19,10 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
-    toolingApi(version = "1.0.8-SNAPSHOT")
+    toolingApi()
     artifactResolver()
-    implementation("dev.extframework.core:app-api:1.0-BETA")
-    implementation("dev.extframework.core:minecraft-api:1.0-BETA")
+    boot()
+    archives()
     implementation(gradleApi())
 }
 

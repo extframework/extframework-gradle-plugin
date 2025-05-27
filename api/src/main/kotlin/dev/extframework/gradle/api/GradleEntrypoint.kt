@@ -6,7 +6,18 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 public interface GradleEntrypoint : Plugin<Project> {
-    override fun apply(project: Project)
+    override fun apply(
+        project: Project
+    )
 
-    public fun setup(environment: ExtensionEnvironment) : Job<Unit>
+    public fun tweak(
+        root: BuildEnvironment
+    ) : Job<Unit>
+
+//    /**
+//     * Emit environments to configure under
+//     */
+//    public fun emit(
+//        extension: ExtframeworkExtension
+//    ) : Job<List<ExtensionEnvironment>>
 }

@@ -15,12 +15,11 @@ import dev.extframework.boot.monad.Tree
 import dev.extframework.common.util.runCatching
 import dev.extframework.gradle.GradleExceptions
 import dev.extframework.gradle.api.GradleEntrypoint
+import dev.extframework.gradle.api.GradlePartitionNode
 import dev.extframework.tooling.api.exception.StructuredException
 import dev.extframework.tooling.api.extension.PartitionRuntimeModel
-import dev.extframework.tooling.api.extension.descriptor
 import dev.extframework.tooling.api.extension.partition.*
 import dev.extframework.tooling.api.extension.partition.artifact.PartitionArtifactMetadata
-import dev.extframework.tooling.api.extension.partition.artifact.partitionNamed
 import kotlinx.coroutines.awaitAll
 import kotlin.io.path.toPath
 import kotlin.reflect.KClass
@@ -32,7 +31,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         helper: PartitionCacheHelper
     ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> = asyncJob {
         val parentGradlePartitions = helper.erm.parents.mapAsync {
-            val result = helper.cache("gradle", it)()
+            val result = helper.cache("gradle", helper.defaultEnvironment, it)()
 
             val ex = result.exceptionOrNull()
             if (ex != null) {
@@ -44,7 +43,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         }
 
         val parentTweakerPartitions = helper.erm.parents.mapAsync {
-            val result = helper.cache("tweaker", it)()
+            val result = helper.cache("tweaker", helper.defaultEnvironment, it)()
 
             val ex = result.exceptionOrNull()
             if (ex != null) {
@@ -56,7 +55,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         }
 
         val tweakerPartition = if (helper.erm.partitions.any { model -> model.name == "tweaker" }) {
-            listOf(helper.cache("tweaker")().merge())
+            listOf(helper.cache("tweaker", helper.defaultEnvironment)().merge())
         } else listOf()
 
         helper.newData(
@@ -73,7 +72,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         accessTree: PartitionAccessTree,
         helper: PartitionLoaderHelper
     ): Job<ExtensionPartitionContainer<*, GradlePartitionMetadata>> = job {
-        val thisDescriptor = helper.erm.descriptor.partitionNamed(metadata.name)
+        val thisDescriptor by helper::descriptor
 
         val cl = reference?.let {
             PartitionClassLoader(

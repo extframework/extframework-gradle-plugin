@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "dev.extframework"
-version = "1.3.0"
+version = "1.3.1"
 
 repositories {
     mavenCentral()
@@ -42,13 +42,12 @@ dependencies {
         }
     }
 
-    boot(configurationName = "shadow", version = "3.6.2-SNAPSHOT")
-    extLoader(configurationName = "shadow", version = "2.1.17-SNAPSHOT")
-    toolingApi(configurationName = "shadow", version = "1.0.8-SNAPSHOT")
+    boot(configurationName = "shadow")
+    extLoader(configurationName = "shadow")
+    toolingApi(configurationName = "shadow")
 
     artifactResolver(configurationName = "shadow", maven = true)
-    archiveMapper(configurationName = "shadow", transform = true, tiny = true, proguard = true, mcpLegacy = true)
-    launcherMetaHandler(configurationName = "shadow")
+    archiveMapper(configurationName = "shadow", transform = true)
     archives(configurationName = "shadow")
     commonUtil(configurationName = "shadow")
     toolingApi(configurationName = "shadow")
@@ -67,9 +66,12 @@ dependencies {
 
     shadow("commons-io:commons-io:2.18.0")
 
+    shadow("io.ktor:ktor-client-cio:3.0.3")
+
+
     testImplementation(kotlin("test"))
     commonUtil(configurationName = "testImplementation")
-    toolingApi(configurationName = "testImplementation", version = "1.0.8-SNAPSHOT")
+    toolingApi(configurationName = "testImplementation")
 }
 
 val listAllDependencies by tasks.registering(ListAllDependencies::class)
@@ -114,7 +116,7 @@ common {
 
 publishing {
     publications {
-       create<MavenPublication>("pluginMaven") {
+        create<MavenPublication>("pluginMaven") {
             artifactId = "gradle-plugin"
         }
     }
@@ -142,28 +144,49 @@ abstract class ListAllDependencies : DefaultTask() {
         val set = HashSet<String>()
 
         // Process each configuration that can be resolved
-        project.configurations.filter { it.isCanBeResolved }.forEach { configuration ->
-            println("Processing configuration: ${configuration.name}")
-            try {
-                configuration.resolvedConfiguration.firstLevelModuleDependencies.forEach { dependency ->
-                    collectDependencies(dependency, set)
+        listOf(
+            project.configurations.named("shadow"),
+            project.configurations.named("compileClasspath"),
+            project.configurations.named("compileClasspath"),
+        )
+            .map { it.get() }
+            .filter { it.isCanBeResolved }
+            .forEach { configuration ->
+                println("Processing configuration: ${configuration.name}")
+                try {
+                    configuration.resolvedConfiguration.firstLevelModuleDependencies.forEach { dependency ->
+                        collectDependencies(dependency, set)
+                    }
+                } catch (e: Exception) {
+                    println("Skipping configuration '${configuration.name}' due to resolution errors.")
                 }
-            } catch (e: Exception) {
-                println("Skipping configuration '${configuration.name}' due to resolution errors.")
             }
-        }
 
-        set.add("${this.project.group}:minecraft-bootstrapper:${this.project.version}\n")
+        // Resolved dependencies from gradle do not have local artifact IDs correct
+        set.add("dev.extframework:gradle-api:1")
 
         set.forEach {
-            outputFile.appendText(it)
+            outputFile.appendText("$it\n")
         }
     }
 
     private fun collectDependencies(dependency: ResolvedDependency, set: MutableSet<String>) {
-        set.add("${dependency.moduleGroup}:${dependency.moduleName}:${dependency.moduleVersion}\n")
         dependency.children.forEach { childDependency ->
             collectDependencies(childDependency, set)
         }
+
+//        if (dependency is ProjectDependency) {
+//            val maven = dependency.dependencyProject.publishing.publications
+//                .filterIsInstance<MavenPublication>()
+//                .firstOrNull()
+//
+//            if (maven != null) {
+//                set.add("${maven.groupId}:${maven.artifactId}:${maven.version}}")
+//
+//                return
+//            }
+//        }
+
+        set.add("${dependency.moduleGroup}:${dependency.moduleName}:${dependency.moduleVersion}")
     }
 }
