@@ -6,7 +6,7 @@ plugins {
     kotlin("jvm")
     id("maven-publish")
     id("dev.extframework")
-    id("dev.extframework.common") version "1.0.52"
+    id("dev.extframework.common")
 }
 
 group = "dev.extframework.extension"

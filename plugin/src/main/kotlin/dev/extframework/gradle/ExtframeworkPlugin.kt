@@ -50,7 +50,7 @@ class ExtframeworkPlugin : Plugin<Project> {
                     System.err.println("No further action required, please rerun gradle to clear this message")
                     System.err.println("This plugin requires a gradle init script present in the environment; this script has been installed, please retry.")
 
-                    this::class.java.getResourceAsStream("/dependencies.gradle.kts")!!.use { fin ->
+                    ExtframeworkPlugin::class.java.getResourceAsStream("/dependencies.gradle.kts")!!.use { fin ->
                         FileOutputStream(initScriptPath.toFile()).use { fout ->
                             fin.copyTo(fout)
                         }
