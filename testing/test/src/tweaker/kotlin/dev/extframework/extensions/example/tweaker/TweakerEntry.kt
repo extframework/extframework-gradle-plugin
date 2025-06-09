@@ -15,9 +15,6 @@ class TweakerEntry : EnvironmentTweaker {
     }
 
     override fun tweak(environment: ExtensionEnvironment): Job<Unit> = job {
-        LibraryClass().hello()
-        LibraryClass()
-        OtherLibClass()
         Tweaker2Entry()
         tweaked = true
     }

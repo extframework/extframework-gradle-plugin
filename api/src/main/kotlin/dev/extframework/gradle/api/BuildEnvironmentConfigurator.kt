@@ -25,7 +25,7 @@ public interface BuildEnvironmentConfigurator {
 
         public fun attachDependencies(
             partition: PartitionHandler<*>,
-            list: List<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>
+            classes: List<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>,
         )
     }
 }

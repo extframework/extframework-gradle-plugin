@@ -17,14 +17,8 @@ import java.nio.file.Path
  */
 public interface EnvironmentInitializer {
     public var needsReload: Boolean
-//    public val plugins: List<Class<out Plugin<*>>>
     public val dataDir: Path
-
     public var bootstrapped: Boolean
-
-//    public fun setupPartitions(
-//        extension: ExtframeworkExtension,
-//    ): AsyncJob<Unit>
 
     public fun bootstrap(
         extension: ExtframeworkExtension,

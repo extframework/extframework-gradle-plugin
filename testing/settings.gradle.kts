@@ -22,5 +22,5 @@ plugins {
 include(":test-2")
 include(":test")
 include("library")
-include("test:library")
-findProject(":test:library")?.name = "library"
+//include("test:library")
+//findProject(":test:library")?.name = "library"

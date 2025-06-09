@@ -1,7 +1,9 @@
 package dev.extframework.gradle.api
 
+import dev.extframework.boot.archive.ArchiveGraph
 import dev.extframework.tooling.api.ExtensionLoader
 import dev.extframework.tooling.api.extension.ExtensionNode
+import dev.extframework.tooling.api.extension.partition.PartitionResolver
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSetContainer
@@ -9,6 +11,9 @@ import org.gradle.api.tasks.SourceSetContainer
 public interface ExtframeworkExtension {
     public val worker: EnvironmentInitializer
     public val loader: ExtensionLoader
+
+    public val sourcesGraph: ArchiveGraph
+    public val partitionSourceResolver: PartitionResolver
 
     public val project: Project
 
@@ -20,10 +25,8 @@ public interface ExtframeworkExtension {
     public val partitions: NamedDomainPartitionContainer
 
     public val defaultEnvironment: BuildEnvironment
-
     public val environments: MutableList<BuildEnvironment>
 
-//    public val parents: MutableList<ExtensionNode>
     public val build: BuildCache
 
     public val finalizationActions: List<Action<ExtframeworkExtension>>

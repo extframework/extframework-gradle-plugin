@@ -47,7 +47,7 @@ internal fun ExtensionLoader(
     path: Path,
     owner: ExtframeworkExtension
 ): ExtensionLoader {
-    val graph = DefaultArchiveGraph(path resolve "archives")
+    val graph = ClassesArchiveGraph(path resolve "archives")
     auditors(graph, owner)
     val dependencyTypes = DependencyTypeContainer(graph)
     dependencyTypes.register("simple-maven", MavenResolverProvider())

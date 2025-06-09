@@ -1,6 +1,7 @@
 import dev.extframework.gradle.common.*
 import dev.extframework.gradle.common.dm.artifactResolver
 import dev.extframework.gradle.common.dm.jobs
+import dev.extframework.gradle.common.dm.resourceApi
 import org.gradle.kotlin.dsl.DependencyHandlerScope
 
 plugins {
@@ -13,7 +14,7 @@ plugins {
 }
 
 group = "dev.extframework"
-version = "1.3.3"
+version = "1.3.4"
 
 repositories {
     mavenCentral()
@@ -53,6 +54,7 @@ dependencies {
     toolingApi(configurationName = "shadow")
     objectContainer(configurationName = "shadow")
     jobs(configurationName = "shadow")
+    resourceApi()
 
     shadow(project(":api"))
     jackson("com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.18.3")
@@ -68,8 +70,13 @@ dependencies {
 
     shadow("io.ktor:ktor-client-cio:3.0.3")
 
+    objectContainer(configurationName = "testImplementation")
 
+    testImplementation(project(":api"))
+    extLoader(configurationName = "testImplementation")
     testImplementation(kotlin("test"))
+    boot(configurationName = "testImplementation")
+    artifactResolver(configurationName = "testImplementation", maven = true)
     commonUtil(configurationName = "testImplementation")
     toolingApi(configurationName = "testImplementation")
 }

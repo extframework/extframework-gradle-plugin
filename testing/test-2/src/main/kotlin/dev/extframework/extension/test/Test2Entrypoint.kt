@@ -8,5 +8,6 @@ class Test2Entrypoint : Entrypoint() {
     override fun init() {
         println("Entered")
         Tweaker2Entry()
+        MinecraftTweaker()
     }
 }

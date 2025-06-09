@@ -50,4 +50,9 @@ internal fun setupProject(
     }
 
     registerPublishExtensionToLocalTask(extframework)
+
+    // Add flat dir so we can add sources / classes
+    project.repositories.flatDir {
+        it.dirs(extframework.sourcesGraph.path.toString(), extframework.loader.graph.path.toString())
+    }
 }

@@ -82,10 +82,10 @@ abstract class GenerateErm : DefaultTask() {
         ): ExtensionRuntimeModel {
             val model = model.toImmutable()
 
-            val partitionRepositories = project.repositories.map {
+            val partitionRepositories = project.repositories.mapNotNull {
                 ExtensionRepository(
                     "simple-maven",
-                    serialize(it)
+                    serialize(it) ?: return@mapNotNull null
                 )
             }.filterDuplicates()
 
@@ -166,7 +166,7 @@ abstract class GenerateErm : DefaultTask() {
             )
         }
 
-        private fun serialize(repo: ArtifactRepository): MutableMap<String, String> = when (repo) {
+        private fun serialize(repo: ArtifactRepository): MutableMap<String, String>? = when (repo) {
             is DefaultMavenLocalArtifactRepository -> mutableMapOf(
                 "location" to Paths.get(repo.url).toString(),
                 "type" to "local"
@@ -177,7 +177,7 @@ abstract class GenerateErm : DefaultTask() {
                 "type" to "default"
             )
 
-            else -> throw Exception("Unknown repository type: ${repo::class}")
+            else -> null
         }
     }
 }

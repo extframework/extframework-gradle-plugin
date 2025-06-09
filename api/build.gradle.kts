@@ -2,6 +2,7 @@ import dev.extframework.gradle.common.archives
 import dev.extframework.gradle.common.boot
 import dev.extframework.gradle.common.dm.artifactResolver
 import dev.extframework.gradle.common.extFramework
+import dev.extframework.gradle.common.objectContainer
 import dev.extframework.gradle.common.toolingApi
 
 plugins {
@@ -9,7 +10,7 @@ plugins {
     id("dev.extframework.common")
 }
 group = "dev.extframework"
-version = "1.0.2-BETA"
+version = "1.0.3-BETA"
 
 repositories {
     mavenCentral()
@@ -22,6 +23,7 @@ dependencies {
     toolingApi()
     artifactResolver()
     boot()
+    objectContainer()
     archives()
     implementation(gradleApi())
 }

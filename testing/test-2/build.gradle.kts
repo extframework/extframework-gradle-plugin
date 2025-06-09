@@ -36,6 +36,7 @@ val launch by tasks.registering(LaunchMinecraft::class) {
     })
 }
 
+
 extension {
     model {
         attribute("reloadable", "false")
