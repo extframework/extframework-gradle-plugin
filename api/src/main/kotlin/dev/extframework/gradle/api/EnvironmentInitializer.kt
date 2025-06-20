@@ -1,7 +1,5 @@
 package dev.extframework.gradle.api
 
-import com.durganmcbroom.jobs.async.AsyncJob
-import dev.extframework.tooling.api.ExtensionLoader
 import java.nio.file.Path
 
 /**
@@ -16,15 +14,18 @@ import java.nio.file.Path
  *    registering dependencies with gradle, and building environments
  */
 public interface EnvironmentInitializer {
-    public var needsReload: Boolean
     public val dataDir: Path
+
+    public var needsReload: Boolean
     public var bootstrapped: Boolean
 
-    public fun bootstrap(
-        extension: ExtframeworkExtension,
-    ) : AsyncJob<Unit>
+    public val managed: Set<ExtframeworkExtension>
 
-    public fun configure(
+    public suspend fun bootstrap(
         extension: ExtframeworkExtension,
-    ) : AsyncJob<Unit>
+    )
+
+    public suspend fun configure(
+        extension: ExtframeworkExtension,
+    )
 }

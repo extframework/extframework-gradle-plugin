@@ -1,4 +1,3 @@
-import dev.extframework.gradle.common.dm.jobs
 import dev.extframework.gradle.common.extFramework
 import dev.extframework.gradle.common.toolingApi
 
@@ -26,8 +25,7 @@ extension {
         tweaker {
             tweakerClass = "dev.extframework.extensions.test2.TweakerTest2"
             dependencies {
-                toolingApi()
-                jobs()
+               implementation(toolingApi())
             }
         }
     }

@@ -1,6 +1,5 @@
 package dev.extframework.gradle.api
 
-import com.durganmcbroom.jobs.Job
 import dev.extframework.boot.archive.ArchiveNodeResolver
 import dev.extframework.boot.archive.IArchive
 import dev.extframework.boot.monad.Tagged
@@ -15,10 +14,10 @@ public interface BuildEnvironmentConfigurator {
      * Configures environments. This could include anything operation that is generally run in this
      * environment, however an easy example is the loading of partitions.
      */
-    public fun configure(
+    public suspend fun configure(
         environment: BuildEnvironment,
         helper: Helper
-    ) : Job<Unit>
+    )
 
     public interface Helper {
         public val repository: ExtensionRepositorySettings

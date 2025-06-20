@@ -1,16 +1,14 @@
 package dev.extframework.gradle.source
 
 import com.durganmcbroom.artifact.resolver.*
-import com.durganmcbroom.jobs.Job
-import com.durganmcbroom.jobs.JobName
-import com.durganmcbroom.jobs.async.AsyncJob
-import com.durganmcbroom.jobs.async.asyncJob
 import com.durganmcbroom.resources.Resource
 import com.durganmcbroom.resources.ResourceNotFoundException
 import dev.extframework.boot.archive.*
+import dev.extframework.boot.monad.Either
 import dev.extframework.boot.monad.Tagged
 import dev.extframework.boot.monad.Tree
 import dev.extframework.common.util.filterDuplicates
+import dev.extframework.common.util.resolve
 import dev.extframework.gradle.api.source.SourceDependencyTypeContainer
 import dev.extframework.tooling.api.environment.EnvironmentRegistry
 import dev.extframework.tooling.api.environment.dependencyTypesAttrKey
@@ -28,7 +26,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Path
 import kotlin.io.path.Path
-import dev.extframework.common.util.resolve
 
 open class PartitionSourceArtifactRepository(
     final override val settings: ExtensionRepositorySettings,
@@ -38,38 +35,37 @@ open class PartitionSourceArtifactRepository(
     override val name: String = "partition-sources@${settings.layout.name}"
     private val layout by settings::layout
 
-    override fun get(
+    override suspend fun get(
         request: PartitionArtifactRequest
-    ): AsyncJob<PartitionArtifactMetadata> =
-        asyncJob(JobName("Load extension source metadata for: '${request.descriptor}'")) {
-            val (extensionDescriptor, partition) = request.descriptor
-            val (group, artifact, version) = extensionDescriptor
+    ): PartitionArtifactMetadata {
+        val (extensionDescriptor, partition) = request.descriptor
+        val (group, artifact, version) = extensionDescriptor
 
-            val prm = prmProvider(request.descriptor, settings)
+        val prm = prmProvider(request.descriptor, settings)
 
-            if (prm == null) {
-                throw MetadataRequestException.MetadataNotFound(request.descriptor, "prm/erm.json")
-            }
-
-            val jar = try {
-                layout.resourceOf(
-                    group,
-                    artifact,
-                    version,
-                    "$partition-sources",
-                    "jar",
-                )
-            } catch (_: ResourceNotFoundException) {
-                null
-            } catch (e: Throwable) {
-                throw e
-            }
-
-            PartitionArtifactMetadata(
-                request.descriptor,
-                jar,
-            )
+        if (prm == null) {
+            throw MetadataRequestException.MetadataNotFound(request.descriptor, "prm/erm.json")
         }
+
+        val jar = try {
+            layout.resourceOf(
+                group,
+                artifact,
+                version,
+                "$partition-sources",
+                "jar",
+            )
+        } catch (_: ResourceNotFoundException) {
+            null
+        } catch (e: Throwable) {
+            throw e
+        }
+
+        return PartitionArtifactMetadata(
+            request.descriptor,
+            jar,
+        )
+    }
 }
 
 // TODO This is mostly copied from ext-loader, poor design, make DefaultPartitionResolver more extensible.
@@ -78,7 +74,7 @@ class SourcePartitionResolver(
     private val environmentRegistry: EnvironmentRegistry,
     private val defaultEnvironment: String
 ) : PartitionResolver {
-    private val factory = object : RepositoryFactory<ExtensionRepositorySettings, PartitionSourceArtifactRepository> {
+    override val factory = object : RepositoryFactory<ExtensionRepositorySettings, PartitionSourceArtifactRepository> {
         override fun createNew(settings: ExtensionRepositorySettings): PartitionSourceArtifactRepository {
             return PartitionSourceArtifactRepository(
                 settings,
@@ -94,8 +90,6 @@ class SourcePartitionResolver(
 
     override val name: String
         get() = "extension-partition:sources"
-    override val context: ResolutionContext<ExtensionRepositorySettings, PartitionArtifactRequest, PartitionArtifactMetadata> =
-        factory.createContext()
 
     override fun pathForDescriptor(descriptor: PartitionDescriptor, classifier: String, type: String): Path {
         return Path("extensions") resolve super.pathForDescriptor(descriptor, classifier, type)
@@ -105,15 +99,16 @@ class SourcePartitionResolver(
         data: ArchiveData<PartitionDescriptor, CachedArchiveResource>,
         accessTree: ArchiveAccessTree,
         helper: ResolutionHelper
-    ): Job<ExtensionPartitionContainer<*, *>> {
+    ): ExtensionPartitionContainer<*, *> {
         throw UnsupportedOperationException()
     }
+
 
     private fun unknownEnvironment(
         env: String
     ): Nothing = throw StructuredException(
         InternalExceptions.UnknownEnvironmentException,
-        message = "Unknown environment $env"
+        description = "Unknown environment $env"
     ) {
         solution("Please registry this environment with the EnvironmentRegistry.")
         environmentRegistry.objects().keys asContext "Registered environments"
@@ -136,11 +131,12 @@ class SourcePartitionResolver(
             )
     }
 
-    override fun cache(
-        artifact: Artifact<PartitionArtifactMetadata>,
+    override suspend fun cache(
+        metadata: PartitionArtifactMetadata,
+        parents: List<Tree<Either<PartitionArtifactMetadata, TaggedIArchive>>>,
         helper: CacheHelper<PartitionDescriptor>
-    ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> = asyncJob {
-        val descriptor = artifact.metadata.descriptor
+    ): Tree<TaggedIArchive> {
+        val descriptor = metadata.descriptor
         val erm = bridge.ermFor(descriptor.extension)
         val prm = erm.namedPartitions[descriptor.partition]
             ?: throw PartitionLoadException(
@@ -154,7 +150,7 @@ class SourcePartitionResolver(
             ?: unknownEnvironment(descriptor.environment)
         val dependencyTypes = environment[dependencyTypesAttrKey]
 
-        helper.withResource("partition-sources.jar", artifact.metadata.resource)
+        helper.withResource("partition-sources.jar", metadata.resource)
 
         val dependencies = cacheSourceDependencies(
             prm,
@@ -162,14 +158,15 @@ class SourcePartitionResolver(
             dependencyTypes.container,
             environment[SourceDependencyTypeContainer],
             helper,
-        )().merge()
+        )
 
-        loader.cache(
-            artifact,
+        return loader.cache(
+            metadata,
+            parents,
             DefaultPartitionCacheHelper(
                 erm, prm, helper, descriptor, dependencies
             )
-        )().merge()
+        )
     }
 
     private inner class DefaultPartitionCacheHelper(
@@ -181,10 +178,10 @@ class SourcePartitionResolver(
     ) : PartitionCacheHelper {
         override val defaultEnvironment: String = this@SourcePartitionResolver.defaultEnvironment
 
-        override fun cache(
+        override suspend fun cache(
             reference: String,
             environment: String
-        ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> {
+        ): Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>> {
             return cache(
                 PartitionArtifactRequest(
                     PartitionDescriptor(
@@ -198,12 +195,12 @@ class SourcePartitionResolver(
             )
         }
 
-        override fun cache(
+        override suspend fun cache(
             partition: String,
             environment: String,
             parent: ExtensionParent
-        ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> = asyncJob {
-            cache(
+        ): Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>> {
+            return cache(
                 PartitionArtifactRequest(
                     PartitionDescriptor(
                         parent.toDescriptor(),
@@ -213,24 +210,25 @@ class SourcePartitionResolver(
                 ),
                 bridge.repositoryFor(parent.toDescriptor()),
                 this@SourcePartitionResolver
-            )().merge()
+            )
         }
 
         // Delegation
         override val trace: ArchiveTrace by helper::trace
 
-        override fun <D : ArtifactMetadata.Descriptor, T : ArtifactRequest<D>, R : RepositorySettings> cache(
+
+        override suspend fun <D : ArtifactMetadata.Descriptor, T : ArtifactRequest<D>, R : RepositorySettings> cache(
             request: T,
             repository: R,
             resolver: ArchiveNodeResolver<D, T, *, R, *>
-        ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> {
+        ): Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>> {
             return helper.cache(request, repository, resolver)
         }
 
-        override fun <D : ArtifactMetadata.Descriptor, M : ArtifactMetadata<D, *>> cache(
-            artifact: Artifact<M>,
+        override suspend fun <D : ArtifactMetadata.Descriptor, M : ArtifactMetadata<D, *>> cache(
+            artifact: Tree<Either<M, TaggedIArchive>>,
             resolver: ArchiveNodeResolver<D, *, *, *, M>
-        ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> {
+        ): Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>> {
             return helper.cache(artifact, resolver)
         }
 

@@ -1,31 +1,30 @@
-import dev.extframework.gradle.common.archives
-import dev.extframework.gradle.common.boot
-import dev.extframework.gradle.common.dm.artifactResolver
-import dev.extframework.gradle.common.extFramework
-import dev.extframework.gradle.common.objectContainer
-import dev.extframework.gradle.common.toolingApi
+import dev.extframework.gradle.common.*
 
 plugins {
     kotlin("jvm")
     id("dev.extframework.common")
 }
+
 group = "dev.extframework"
-version = "1.0.3-BETA"
+version = "1.1-BETA"
 
 repositories {
     mavenCentral()
     extFramework()
-    mavenLocal()
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
-    toolingApi()
-    artifactResolver()
-    boot()
-    objectContainer()
-    archives()
+    implementation(boot())
+    implementation(extLoader())
+    implementation(toolingApi())
+    implementation(artifactResolver())
+    implementation(artifactResolverMaven())
+    implementation(objectContainer())
+    implementation(archives())
+
     implementation(gradleApi())
+
+    testImplementation(kotlin("test"))
 }
 
 tasks.test {

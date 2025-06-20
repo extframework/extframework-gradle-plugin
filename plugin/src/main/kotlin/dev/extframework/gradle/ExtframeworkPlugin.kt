@@ -1,20 +1,14 @@
 package dev.extframework.gradle
 
-import BootLoggerFactory
-import com.durganmcbroom.jobs.launch
-import com.durganmcbroom.resources.KtorInstance
 import dev.extframework.common.util.make
 import dev.extframework.common.util.resolve
 import dev.extframework.gradle.api.EnvironmentInitializer
 import dev.extframework.gradle.api.ExtframeworkExtension
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIOEngineConfig
-import io.ktor.client.engine.cio.endpoint
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.util.AttributeKey
 import kotlinx.coroutines.runBlocking
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.util.GradleVersion
 import java.io.FileOutputStream
 import kotlin.io.path.exists
 import kotlin.io.path.readText
@@ -30,81 +24,83 @@ import kotlin.io.path.writeText
 
 class ExtframeworkPlugin : Plugin<Project> {
     override fun apply(target: Project) {
-        launch(BootLoggerFactory()) {
-            runBlocking {
-                val worker = target.rootProject.extensions.findByType(EnvironmentInitializer::class.java)
-                    ?: target.rootProject.extensions.create(
-                        "worker",
-                        DefaultExtensionInitializer::class.java,
-                        target.rootProject
+        val minVersion = GradleVersion.version("8.14.2")
+
+        if (GradleVersion.current() < minVersion) {
+            throw GradleException("This plugin requires Gradle $minVersion or higher. Current version: ${GradleVersion.current()}")
+        }
+
+        runBlocking {
+            val worker = target.rootProject.extensions.findByType(EnvironmentInitializer::class.java)
+                ?: target.rootProject.extensions.create(
+                    "worker",
+                    DefaultExtensionInitializer::class.java,
+                    target.rootProject
+                )
+
+            val initDPath = target.gradle.gradleHomeDir!!.toPath() resolve "init.d"
+            val initScriptVersionPath = initDPath.resolve("extframework-dep-init-v.txt")
+            val initScriptPath = initDPath resolve "dependencies.gradle.kts"
+
+            val version = initScriptVersionPath.takeIf { it.exists() }?.readText()
+
+            if (initScriptPath.make() || version != DEPENDENCIES_INIT_VERSION) {
+                System.err.println("----------- Extension Framework -----------")
+                System.err.println("No further action required, please rerun gradle to clear this message")
+                System.err.println("This plugin requires a gradle init script present in the environment; this script has been installed, please retry.")
+
+                ExtframeworkPlugin::class.java.getResourceAsStream("/dependencies.gradle.kts")!!.use { fin ->
+                    FileOutputStream(initScriptPath.toFile()).use { fout ->
+                        fin.copyTo(fout)
+                    }
+                }
+
+                initScriptVersionPath.make()
+                initScriptVersionPath.writeText(DEPENDENCIES_INIT_VERSION)
+
+                worker.needsReload = true
+            }
+
+            if (worker.bootstrapped) return@runBlocking
+
+            for (project in target.rootProject.allprojects) {
+                val path = project.layout.projectDirectory.asFile.toPath() resolve "extension.toml"
+                if (!path.exists()) continue
+
+                val extension =
+                    project.extensions.findByType(ExtframeworkExtension::class.java) ?: project.extensions.create(
+                        "extension",
+                        DefaultExtframeworkExtension::class.java,
+                        project,
+                        worker
                     )
 
-                val initDPath = target.gradle.gradleHomeDir!!.toPath() resolve "init.d"
-                val initScriptVersionPath = initDPath.resolve("extframework-dep-init-v.txt")
-                val initScriptPath = initDPath resolve "dependencies.gradle.kts"
+                worker.bootstrap(extension)
+            }
 
-                val version = initScriptVersionPath.takeIf { it.exists() }?.readText()
+            if (worker.needsReload) {
+                throw ReconfigurationException()
+            }
 
-                if (initScriptPath.make() || version != DEPENDENCIES_INIT_VERSION) {
-                    System.err.println("----------- Extension Framework -----------")
-                    System.err.println("No further action required, please rerun gradle to clear this message")
-                    System.err.println("This plugin requires a gradle init script present in the environment; this script has been installed, please retry.")
+            worker.bootstrapped = true
 
-                    ExtframeworkPlugin::class.java.getResourceAsStream("/dependencies.gradle.kts")!!.use { fin ->
-                        FileOutputStream(initScriptPath.toFile()).use { fout ->
-                            fin.copyTo(fout)
-                        }
+            target.gradle.projectsEvaluated {
+                runBlocking {
+                    for (project in target.rootProject.allprojects) {
+                        val extension = project.extensions.findByType(
+                            ExtframeworkExtension::class.java
+                        ) ?: continue
+
+                        worker.configure(extension)
                     }
 
-                    initScriptVersionPath.make()
-                    initScriptVersionPath.writeText(DEPENDENCIES_INIT_VERSION)
+                    for (project in target.rootProject.allprojects) {
+                        val extension = project.extensions.findByType(
+                            ExtframeworkExtension::class.java
+                        ) ?: continue
 
-                    worker.needsReload = true
-                }
-
-                if (worker.bootstrapped) return@runBlocking
-
-                for (project in target.rootProject.allprojects) {
-                    val path = project.layout.projectDirectory.asFile.toPath() resolve "extension.toml"
-                    if (!path.exists()) continue
-
-                    val extension =
-                        project.extensions.findByType(ExtframeworkExtension::class.java) ?: project.extensions.create(
-                            "extension",
-                            DefaultExtframeworkExtension::class.java,
-                            project,
-                            worker
-                        )
-
-                    worker.bootstrap(extension)().merge()
-                }
-
-                if (worker.needsReload) {
-                    throw ReconfigurationException()
-                }
-
-                worker.bootstrapped = true
-
-                target.gradle.projectsEvaluated {
-                    launch(BootLoggerFactory()) {
-                        runBlocking {
-                            for (project in target.rootProject.allprojects) {
-                                val extension = project.extensions.findByType(
-                                    ExtframeworkExtension::class.java
-                                ) ?: continue
-
-                                worker.configure(extension)().merge()
-                            }
-
-                            for (project in target.rootProject.allprojects) {
-                                val extension = project.extensions.findByType(
-                                    ExtframeworkExtension::class.java
-                                ) ?: continue
-
-                                for (action in extension.finalizationActions) {
-                                    action.execute(extension)
-                                }
-                            }
+                        for (action in extension.finalizationActions) {
+                            action.execute(extension)
                         }
                     }
                 }

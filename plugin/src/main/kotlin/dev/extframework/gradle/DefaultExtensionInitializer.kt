@@ -3,10 +3,6 @@ package dev.extframework.gradle
 import com.durganmcbroom.artifact.resolver.ArtifactMetadata
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenArtifactRequest
 import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
-import com.durganmcbroom.jobs.Job
-import com.durganmcbroom.jobs.async.AsyncJob
-import com.durganmcbroom.jobs.async.asyncJob
-import com.durganmcbroom.jobs.job
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -77,6 +73,7 @@ open class DefaultExtensionInitializer(
     private val writtenMavenBuilds = HashSet<Project>()
 
     override var bootstrapped: Boolean = false
+    override val managed: MutableSet<ExtframeworkExtension> = HashSet()
 
     init {
         check(root == root.rootProject) {
@@ -91,9 +88,9 @@ open class DefaultExtensionInitializer(
      *  - Caching / loading parents (based on the configuration independent extension.toml config)
      *  - Loads the gradle partition (triggers reload)
      */
-    override fun bootstrap(
+    override suspend fun bootstrap(
         extension: ExtframeworkExtension,
-    ) = asyncJob {
+    ) {
         setupProject(extension)
         tweakRoot(extension)
 
@@ -115,17 +112,21 @@ open class DefaultExtensionInitializer(
             descriptors.associate { (descriptor, repository) ->
                 descriptor to toRepository(extension.configuration, repository)
             }
-        )().merge()
+        )
 
-        val parents = extension.loader.load(descriptors.map { it.first })().merge()
+        val parents = extension.loader.load(descriptors.map { it.first })
         extension.build.parents.addAll(parents)
 
-        val fingerprint = extension.loader.applyGradle(extension)().merge()
+        val fingerprint = extension.loader.applyGradle(extension)
 
         extension.build.plugins += fingerprint.plugins
         extension.build.tweakers += fingerprint.tweakers
         extension.build.fingerprint += fingerprint.finger
         extension.build.content += fingerprint.content
+
+        managed.add(extension)
+
+        Unit
     }
 
     /**
@@ -142,10 +143,10 @@ open class DefaultExtensionInitializer(
      *  - Sets up partitions
      */
     private val configured = HashSet<ExtframeworkExtension>()
-    override fun configure(
+    override suspend fun configure(
         extension: ExtframeworkExtension
-    ): AsyncJob<Unit> = asyncJob {
-        if (!configured.add(extension)) return@asyncJob
+    ) {
+        if (!configured.add(extension)) return
 
         val pluginObjects = extension.build.plugins.map {
             extension.project.plugins.apply(
@@ -155,11 +156,11 @@ open class DefaultExtensionInitializer(
         }
 
         pluginObjects.forEach { plugin ->
-            plugin.tweak(extension.defaultEnvironment)().merge()
+            plugin.tweak(extension.defaultEnvironment)
         }
 
         val environments = extension.defaultEnvironment.find(environmentEmitters)?.flatMap {
-            it.emit(extension)().merge().map { env ->
+            it.emit(extension).map { env ->
                 BuildEnvironment(env, extension)
             }
         } ?: listOf()
@@ -170,17 +171,17 @@ open class DefaultExtensionInitializer(
             extension.loader.tweak(
                 extension.build.parents,
                 environment
-            )().merge()
+            )
         }
 
         extension.environments += environments
 
-        setupPartitions(extension)().merge()
+        setupPartitions(extension)
     }
 
-    private fun setupPartitions(
+    private suspend fun setupPartitions(
         extension: ExtframeworkExtension,
-    ): AsyncJob<Unit> = asyncJob {
+    ) {
         val config = extension.configuration
 
         // Generate the runtime model for this extension
@@ -214,7 +215,7 @@ open class DefaultExtensionInitializer(
         for ((_, parentProject) in parentBuilds) {
             configure(
                 parentProject
-            )().merge()
+            )
         }
 
         val accessibleParents = parentBuilds + (extension.model.descriptor to extension)
@@ -240,15 +241,17 @@ open class DefaultExtensionInitializer(
             path = repoDir.toString()
         )
 
+        deleteExtensionMetadata(extension, descriptor)
+
         extension.loader.cache(
             mapOf(
                 descriptor to repository
             )
-        )().merge()
+        )
 
         extension.loader.load(
             listOf(descriptor),
-        )().merge()
+        )
 
         for (environment in extension.environments) {
             val configurators = environment[environmentConfigurators]
@@ -363,9 +366,24 @@ open class DefaultExtensionInitializer(
                             )
                         }
                     }
-                })().merge()
+                })
             }
         }
+    }
+
+    // TODO this is hacky, assumes directory layouts of archives.
+    private fun deleteExtensionMetadata(extension: ExtframeworkExtension, descriptor: ExtensionDescriptor) {
+        val pathForDescriptor = extension.loader.extensionResolver.pathForDescriptor(
+            descriptor,
+            "stub_for_deletion",
+            "txt"
+        )
+
+        val classesPath = extension.loader.graph.path resolve pathForDescriptor
+        classesPath.parent.deleteAll()
+
+        val sourcesPath = extension.sourcesGraph.path resolve pathForDescriptor
+        sourcesPath.parent.deleteAll()
     }
 
     // TODO better error messages: Right now if a library that we are writing has no publications
@@ -457,57 +475,56 @@ open class DefaultExtensionInitializer(
         )
     }
 
-    private fun ExtensionLoader.applyGradle(
+    private suspend fun ExtensionLoader.applyGradle(
         extension: ExtframeworkExtension
-    ): AsyncJob<BuildFingerprint> =
-        asyncJob {
-            val resolver by extension.loader::extensionResolver
+    ): BuildFingerprint {
+        val resolver by extension.loader::extensionResolver
 
-            val uberGradleParents = extension.build.parents
-                .filter { archive ->
-                    val erm = resolver.accessBridge.ermFor(archive.descriptor)
-                    erm.partitions.any { model -> model.type == "gradle" }
-                }
-                .map { archive ->
-                    UberParentRequest(
-                        PartitionArtifactRequest(
-                            archive.descriptor,
-                            "gradle",
-                            rootEnvironment.name
-                        ),
-                        resolver.accessBridge.repositoryFor(archive.descriptor),
-                        resolver.partitionResolver
-                    )
-                }
+        val uberGradleParents = extension.build.parents
+            .filter { archive ->
+                val erm = resolver.accessBridge.ermFor(archive.descriptor)
+                erm.partitions.any { model -> model.type == "gradle" }
+            }
+            .map { archive ->
+                UberParentRequest(
+                    PartitionArtifactRequest(
+                        archive.descriptor,
+                        "gradle",
+                        rootEnvironment.name
+                    ),
+                    resolver.accessBridge.repositoryFor(archive.descriptor),
+                    resolver.partitionResolver
+                )
+            }
 
-            val uberTweakerParents = extension.build.parents
-                .filter { archive ->
-                    val erm = resolver.accessBridge.ermFor(archive.descriptor)
-                    erm.partitions.any { model -> model.type == "tweaker" }
-                }
-                .map { archive ->
-                    UberParentRequest(
-                        PartitionArtifactRequest(
-                            archive.descriptor,
-                            "tweaker",
-                            rootEnvironment.name
-                        ),
-                        resolver.accessBridge.repositoryFor(archive.descriptor),
-                        resolver.partitionResolver
-                    )
-                }
+        val uberTweakerParents = extension.build.parents
+            .filter { archive ->
+                val erm = resolver.accessBridge.ermFor(archive.descriptor)
+                erm.partitions.any { model -> model.type == "tweaker" }
+            }
+            .map { archive ->
+                UberParentRequest(
+                    PartitionArtifactRequest(
+                        archive.descriptor,
+                        "tweaker",
+                        rootEnvironment.name
+                    ),
+                    resolver.accessBridge.repositoryFor(archive.descriptor),
+                    resolver.partitionResolver
+                )
+            }
 
-            val uberDescriptor = UberDescriptor("Gradle Bootstrap")
-            val uberRequest = UberArtifactRequest(
-                uberDescriptor,
-                uberGradleParents + uberTweakerParents,
-            )
+        val uberDescriptor = UberDescriptor("Gradle Bootstrap")
+        val uberRequest = UberArtifactRequest(
+            uberDescriptor,
+            uberGradleParents + uberTweakerParents,
+        )
 
-            val cacheResult = graph.cacheAsync(
-                uberRequest,
-                UberRepositorySettings,
-                UberResolver
-            )().merge().toList()
+        val cacheResult = graph.cache(
+            uberRequest,
+            UberRepositorySettings,
+            UberResolver
+        ).toList()
 //
 //            val uberTweakerDescriptor = UberDescriptor("All Tweaker partitions")
 //            val uberTweakerRequest = UberArtifactRequest(
@@ -523,113 +540,113 @@ open class DefaultExtensionInitializer(
 //
 //            val cacheResult = tweakerCacheResult + gradleCacheResult
 
-            for (tagged in cacheResult) {
-                val archive = tagged.value
-                if (archive is ArchiveData<*, *>) {
-                    archiveDataCache[tagged.value.descriptor] = archive
-                }
+        for (tagged in cacheResult) {
+            val archive = tagged.value
+            if (archive is ArchiveData<*, *>) {
+                archiveDataCache[tagged.value.descriptor] = archive
             }
-
-            val fingerprint = buildFingerprint.takeIf {
-                it.exists()
-            }?.let {
-                runCatching {
-                    mapper.readValue<MutableMap<String, BuildFingerprint>>(it.toFile())
-                }.getOrNull()
-            } ?: HashMap()
-
-            val currentFingerprint = extension.build.parents.mapTo(HashSet()) { it.descriptor.name }
-
-            if (fingerprint[extension.project.path]?.finger != currentFingerprint) {
-                val uberGradle = graph.getAsync(
-                    uberDescriptor,
-                    UberResolver
-                )().merge()
-
-                val accessSet = uberGradle.access.targets.mapTo(mutableSetOf()) { target ->
-                    target.descriptor
-                }
-
-                val filteredArchiveTree = cacheResult
-                    .filter { accessSet.contains(it.value.descriptor) }
-
-                val projectBuildPath =
-                    buildPath resolve extension.project.path.replace(":", "_")
-                projectBuildPath.deleteAll()
-
-                for ((archive, resolver) in filteredArchiveTree) {
-                    val archive = archive as? ArchiveData<*, *>
-                        ?: archiveDataCache[archive.descriptor]
-                        ?: throw Exception("Archive loaded?")
-
-                    resolver as ArchiveNodeResolver<ArtifactMetadata.Descriptor, *, *, *, *>
-
-                    for ((name, resource) in archive.resources) {
-                        resource as CachedArchiveResource
-
-                        val (name, type) = name.split(".")
-                        if (type != "jar") continue
-
-                        val path = projectBuildPath resolve resolver.pathForDescriptor(archive.descriptor, name, type)
-                        path.make()
-
-                        resource.path.copyTo(path, overwrite = true)
-                    }
-                }
-
-                val plugins = extension.build.parents
-                    .mapNotNull { archive ->
-                        uberGradle.access
-                            .targets
-                            .map { target -> target.relationship.node }
-                            .filterIsInstance<ExtensionPartitionContainer<*, *>>()
-                            .filter { it.node is GradlePartitionNode }
-                            .filterIsInstance<ExtensionPartitionContainer<GradlePartitionNode, *>>()
-                            .find { container -> container.descriptor.extension == archive.descriptor }
-                    }
-                    .reversed()
-                    .filterDuplicates()
-                    .map { it.metadata }
-                    .filterIsInstance<GradlePartitionMetadata>()
-                    .map { it.entrypoint }
-
-                val tweakers = extension.build.parents
-                    .mapNotNull { archive ->
-                        uberGradle.access
-                            .targets
-                            .map { target -> target.relationship.node }
-                            .filterIsInstance<ExtensionPartitionContainer<*, *>>()
-                            .filter { it.node is TweakerPartitionNode }
-                            .filterIsInstance<ExtensionPartitionContainer<TweakerPartitionNode, *>>()
-                            .find { container -> container.descriptor.extension == archive.descriptor }
-                    }
-                    .reversed()
-                    .filterDuplicates()
-                    .map { it.metadata }
-                    .filterIsInstance<TweakerPartitionMetadata>()
-                    .map { it.tweakerClass }
-
-                fingerprint[extension.project.path] = BuildFingerprint(
-                    currentFingerprint,
-                    filteredArchiveTree.mapTo(HashSet()) {
-                        it.value.descriptor.name
-                    },
-                    plugins,
-                    tweakers
-                )
-                buildFingerprint.make()
-
-                buildFingerprint.writeBytes(
-                    mapper.writeValueAsBytes(fingerprint)
-                )
-
-                needsReload = true
-            }
-
-            fingerprint[extension.project.path]!!
         }
 
-    private fun tweakRoot(
+        val fingerprint = buildFingerprint.takeIf {
+            it.exists()
+        }?.let {
+            runCatching {
+                mapper.readValue<MutableMap<String, BuildFingerprint>>(it.toFile())
+            }.getOrNull()
+        } ?: HashMap()
+
+        val currentFingerprint = extension.build.parents.mapTo(HashSet()) { it.descriptor.name }
+
+        if (fingerprint[extension.project.path]?.finger != currentFingerprint) {
+            val uberGradle = graph.get(
+                uberDescriptor,
+                UberResolver
+            )
+
+            val accessSet = uberGradle.access.targets.mapTo(mutableSetOf()) { target ->
+                target.descriptor
+            }
+
+            val filteredArchiveTree = cacheResult
+                .filter { accessSet.contains(it.value.descriptor) }
+
+            val projectBuildPath =
+                buildPath resolve extension.project.path.replace(":", "_")
+            projectBuildPath.deleteAll()
+
+            for ((archive, resolver) in filteredArchiveTree) {
+                val archive = archive as? ArchiveData<*, *>
+                    ?: archiveDataCache[archive.descriptor]
+                    ?: throw Exception("Archive loaded?")
+
+                resolver as ArchiveNodeResolver<ArtifactMetadata.Descriptor, *, *, *, *>
+
+                for ((name, resource) in archive.resources) {
+                    resource as CachedArchiveResource
+
+                    val (name, type) = name.split(".")
+                    if (type != "jar") continue
+
+                    val path = projectBuildPath resolve resolver.pathForDescriptor(archive.descriptor, name, type)
+                    path.make()
+
+                    resource.path.copyTo(path, overwrite = true)
+                }
+            }
+
+            val plugins = extension.build.parents
+                .mapNotNull { archive ->
+                    uberGradle.access
+                        .targets
+                        .map { target -> target.relationship.node }
+                        .filterIsInstance<ExtensionPartitionContainer<*, *>>()
+                        .filter { it.node is GradlePartitionNode }
+                        .filterIsInstance<ExtensionPartitionContainer<GradlePartitionNode, *>>()
+                        .find { container -> container.descriptor.extension == archive.descriptor }
+                }
+                .reversed()
+                .filterDuplicates()
+                .map { it.metadata }
+                .filterIsInstance<GradlePartitionMetadata>()
+                .map { it.entrypoint }
+
+            val tweakers = extension.build.parents
+                .mapNotNull { archive ->
+                    uberGradle.access
+                        .targets
+                        .map { target -> target.relationship.node }
+                        .filterIsInstance<ExtensionPartitionContainer<*, *>>()
+                        .filter { it.node is TweakerPartitionNode }
+                        .filterIsInstance<ExtensionPartitionContainer<TweakerPartitionNode, *>>()
+                        .find { container -> container.descriptor.extension == archive.descriptor }
+                }
+                .reversed()
+                .filterDuplicates()
+                .map { it.metadata }
+                .filterIsInstance<TweakerPartitionMetadata>()
+                .map { it.tweakerClass }
+
+            fingerprint[extension.project.path] = BuildFingerprint(
+                currentFingerprint,
+                filteredArchiveTree.mapTo(HashSet()) {
+                    it.value.descriptor.name
+                },
+                plugins,
+                tweakers
+            )
+            buildFingerprint.make()
+
+            buildFingerprint.writeBytes(
+                mapper.writeValueAsBytes(fingerprint)
+            )
+
+            needsReload = true
+        }
+
+        return fingerprint[extension.project.path]!!
+    }
+
+    private suspend fun tweakRoot(
         extension: ExtframeworkExtension
     ) {
         val env = extension.defaultEnvironment
@@ -652,10 +669,10 @@ open class DefaultExtensionInitializer(
         env.set(MutableObjectSetAttribute(environmentConfigurators))
 
         env[environmentConfigurators] += object : BuildEnvironmentConfigurator {
-            override fun configure(
+            override suspend fun configure(
                 environment: BuildEnvironment,
                 helper: BuildEnvironmentConfigurator.Helper
-            ): Job<Unit> = job {
+            ) {
                 val tweaker = environment.extension.partitions.findByName("tweaker")
                 if (tweaker != null) {
                     val partitionRequest = PartitionArtifactRequest(
@@ -670,7 +687,7 @@ open class DefaultExtensionInitializer(
                         partitionRequest,
                         helper.repository,
                         environment.extension.loader.extensionResolver.partitionResolver
-                    )().merge().parents.flatMap { it.toList() }
+                    ).parents.flatMap { it.toList() }
 
                     helper.attachDependencies(
                         tweaker,
@@ -682,7 +699,7 @@ open class DefaultExtensionInitializer(
                         partitionRequest,
                         helper.repository,
                         environment.extension.partitionSourceResolver
-                    )().merge().parents.flatMap { it.toList() }
+                    ).parents.flatMap { it.toList() }
                 }
 
                 val gradle = environment.extension.partitions.findByName(
@@ -702,7 +719,7 @@ open class DefaultExtensionInitializer(
                         partitionRequest,
                         helper.repository,
                         environment.extension.loader.extensionResolver.partitionResolver
-                    )().merge().parents.flatMap { it.toList() }
+                    ).parents.flatMap { it.toList() }
 
                     helper.attachDependencies(
                         gradle,
@@ -714,7 +731,7 @@ open class DefaultExtensionInitializer(
                         partitionRequest,
                         helper.repository,
                         environment.extension.partitionSourceResolver
-                    )().merge().parents.flatMap { it.toList() }
+                    ).parents.flatMap { it.toList() }
                 }
             }
         }

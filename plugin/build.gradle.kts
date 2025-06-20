@@ -1,8 +1,4 @@
 import dev.extframework.gradle.common.*
-import dev.extframework.gradle.common.dm.artifactResolver
-import dev.extframework.gradle.common.dm.jobs
-import dev.extframework.gradle.common.dm.resourceApi
-import org.gradle.kotlin.dsl.DependencyHandlerScope
 
 plugins {
     `java-gradle-plugin`
@@ -10,90 +6,53 @@ plugins {
 
     id("com.gradle.plugin-publish")
     id("dev.extframework.common")
-    id("com.gradleup.shadow") version "9.0.0-beta10"
 }
 
 group = "dev.extframework"
-version = "1.3.5"
+version = "1.4"
 
 repositories {
     mavenCentral()
     extFramework()
-    mavenLocal()
-}
-
-val jacksonConfig by configurations.creating {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
-
-fun DependencyHandlerScope.jackson(
-    notation: Any
-) {
-    jacksonConfig(notation)
-    compileOnly(notation)
 }
 
 dependencies {
-    constraints {
-        implementation("com.fasterxml.jackson.core:jackson-core") {
-            version {
-                strictly("2.18.3")
-            }
-        }
-    }
+    implementation(boot())
+    implementation(extLoader())
+    implementation(toolingApi())
+    implementation(artifactResolver())
+    implementation(artifactResolverMaven())
+    implementation(archiveMapper())
+    implementation(archives())
+    implementation(commonUtil())
+    implementation(objectContainer())
+    implementation(resourceApi())
 
-    boot(configurationName = "shadow")
-    extLoader(configurationName = "shadow")
-    toolingApi(configurationName = "shadow")
+    implementation(project(":api"))
 
-    artifactResolver(configurationName = "shadow", maven = true)
-    archiveMapper(configurationName = "shadow", transform = true)
-    archives(configurationName = "shadow")
-    commonUtil(configurationName = "shadow")
-    toolingApi(configurationName = "shadow")
-    objectContainer(configurationName = "shadow")
-    jobs(configurationName = "shadow")
-    resourceApi()
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.19.0")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.19.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.0")
 
-    shadow(project(":api"))
-    jackson("com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.18.3")
-    jackson("com.fasterxml.jackson.core:jackson-core:2.18.3")
-    jackson("com.fasterxml.jackson.core:jackson-databind:2.18.3")
-    jackson("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation(kotlin("stdlib"))
+    implementation(kotlin("reflect"))
 
-    shadow("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    shadow(kotlin("stdlib"))
-    shadow(kotlin("reflect"))
+    implementation("commons-io:commons-io:2.18.0")
+    implementation("io.ktor:ktor-client-cio:3.0.3")
 
-    shadow("commons-io:commons-io:2.18.0")
-
-    shadow("io.ktor:ktor-client-cio:3.0.3")
-
-    objectContainer(configurationName = "testImplementation")
-
+    testImplementation(objectContainer())
     testImplementation(project(":api"))
-    extLoader(configurationName = "testImplementation")
+    testImplementation(extLoader())
     testImplementation(kotlin("test"))
-    boot(configurationName = "testImplementation")
-    artifactResolver(configurationName = "testImplementation", maven = true)
-    commonUtil(configurationName = "testImplementation")
-    toolingApi(configurationName = "testImplementation")
+    testImplementation(boot())
+    testImplementation(artifactResolver())
+    testImplementation(commonUtil())
+    testImplementation(toolingApi())
 }
 
 val listAllDependencies by tasks.registering(ListAllDependencies::class)
-
-tasks.shadowJar {
-    configurations = listOf(jacksonConfig)
-    archiveClassifier.set("")
-
-    from(listAllDependencies)
-    dependencies {
-        exclude(dependency("org.jetbrains.kotlin:.*:.*"))
-    }
-    enableRelocation = true
-    relocationPrefix = "dev.extframework.gradle.internal"
-}
 
 gradlePlugin {
     website = "https://github.com/extframework"
@@ -109,7 +68,7 @@ gradlePlugin {
 }
 
 tasks.jar {
-    isEnabled = false
+    from(listAllDependencies)
 }
 
 common {
@@ -152,7 +111,7 @@ abstract class ListAllDependencies : DefaultTask() {
 
         // Process each configuration that can be resolved
         listOf(
-            project.configurations.named("shadow"),
+//            project.configurations.named("shadow"),
             project.configurations.named("compileClasspath"),
             project.configurations.named("compileClasspath"),
         )

@@ -1,17 +1,14 @@
 package dev.extframework.gradle.partition
 
-import com.durganmcbroom.artifact.resolver.Artifact
-import com.durganmcbroom.jobs.Job
-import com.durganmcbroom.jobs.async.AsyncJob
-import com.durganmcbroom.jobs.async.asyncJob
-import com.durganmcbroom.jobs.async.mapAsync
-import com.durganmcbroom.jobs.job
 import dev.extframework.archives.ArchiveReference
 import dev.extframework.boot.archive.ArchiveException
 import dev.extframework.boot.archive.ArchiveNodeResolver
 import dev.extframework.boot.archive.IArchive
+import dev.extframework.boot.archive.TaggedIArchive
+import dev.extframework.boot.monad.Either
 import dev.extframework.boot.monad.Tagged
 import dev.extframework.boot.monad.Tree
+import dev.extframework.boot.util.mapAsync
 import dev.extframework.common.util.runCatching
 import dev.extframework.gradle.GradleExceptions
 import dev.extframework.gradle.api.GradleEntrypoint
@@ -26,40 +23,33 @@ import kotlin.reflect.KClass
 
 class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> {
     override val type: String = "gradle"
-    override fun cache(
-        artifact: Artifact<PartitionArtifactMetadata>,
+    override suspend fun cache(
+        metadata: PartitionArtifactMetadata,
+        parents: List<Tree<Either<PartitionArtifactMetadata, TaggedIArchive>>>,
         helper: PartitionCacheHelper
-    ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> = asyncJob {
+    ): Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>> {
         val parentGradlePartitions = helper.erm.parents.mapAsync {
-            val result = helper.cache("gradle", helper.defaultEnvironment, it)()
-
-            val ex = result.exceptionOrNull()
-            if (ex != null) {
-                if (ex is ArchiveException.ArchiveNotFound) null
-                else throw ex
+            try {
+                helper.cache("gradle", helper.defaultEnvironment, it)
+            } catch (_: ArchiveException.ArchiveNotFound) {
+                null
             }
-
-            result.getOrNull()
         }
 
         val parentTweakerPartitions = helper.erm.parents.mapAsync {
-            val result = helper.cache("tweaker", helper.defaultEnvironment, it)()
-
-            val ex = result.exceptionOrNull()
-            if (ex != null) {
-                if (ex is ArchiveException.ArchiveNotFound) null
-                else throw ex
+            try {
+                helper.cache("tweaker", helper.defaultEnvironment, it)
+            } catch (_: ArchiveException.ArchiveNotFound) {
+                null
             }
-
-            result.getOrNull()
         }
 
         val tweakerPartition = if (helper.erm.partitions.any { model -> model.name == "tweaker" }) {
-            listOf(helper.cache("tweaker", helper.defaultEnvironment)().merge())
+            listOf(helper.cache("tweaker", helper.defaultEnvironment))
         } else listOf()
 
-        helper.newData(
-            artifact.metadata.descriptor,
+        return helper.newData(
+            metadata.descriptor,
             parentGradlePartitions.awaitAll().filterNotNull()
                     + parentTweakerPartitions.awaitAll().filterNotNull()
                     + tweakerPartition
@@ -71,7 +61,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         reference: ArchiveReference?,
         accessTree: PartitionAccessTree,
         helper: PartitionLoaderHelper
-    ): Job<ExtensionPartitionContainer<*, GradlePartitionMetadata>> = job {
+    ): ExtensionPartitionContainer<*, GradlePartitionMetadata> {
         val thisDescriptor by helper::descriptor
 
         val cl = reference?.let {
@@ -100,7 +90,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
             )
         } ?: throw StructuredException(
             GradleExceptions.NoEntrypoint,
-            message = "Could not init gradle partition because the entrypoint class couldn't be found."
+            description = "Could not init gradle partition because the entrypoint class couldn't be found."
         ) {
             pluginClassName asContext "Gradle plugin class name"
         }
@@ -120,7 +110,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
             reference.location.toPath()
         )
 
-        ExtensionPartitionContainer(
+        return ExtensionPartitionContainer(
             thisDescriptor,
             metadata,
             node
@@ -131,7 +121,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         partition: PartitionRuntimeModel,
         reference: ArchiveReference?,
         helper: PartitionMetadataHelper
-    ): Job<GradlePartitionMetadata> = job() {
+    ): GradlePartitionMetadata {
         if (reference == null) throw PartitionLoadException(
             partition.name,
             "The gradle partition must have a jar."
@@ -140,7 +130,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
         val tweakerCls = partition.options["entrypoint"]
             ?: throw IllegalArgumentException("Gradle partition from extension: '${partition.name}' must contain a gradle entrypoint class defined as option: 'entrypoint'.")
 
-        GradlePartitionMetadata(tweakerCls)
+        return GradlePartitionMetadata(tweakerCls)
     }
 
 }

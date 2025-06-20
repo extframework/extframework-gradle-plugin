@@ -1,29 +1,22 @@
 package dev.extframework.gradle.source
 
 import com.durganmcbroom.artifact.resolver.Artifact
+import com.durganmcbroom.artifact.resolver.ArtifactRepository
 import com.durganmcbroom.artifact.resolver.RepositoryFactory
-import com.durganmcbroom.artifact.resolver.ResolutionContext
 import com.durganmcbroom.artifact.resolver.simple.maven.*
-import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenRepositorySettings
-import com.durganmcbroom.jobs.Job
-import com.durganmcbroom.jobs.async.AsyncJob
-import com.durganmcbroom.jobs.async.asyncJob
-import com.durganmcbroom.jobs.async.mapAsync
-import com.durganmcbroom.jobs.job
 import com.durganmcbroom.resources.Resource
 import com.durganmcbroom.resources.ResourceNotFoundException
 import dev.extframework.boot.archive.*
 import dev.extframework.boot.dependency.DependencyResolverProvider
 import dev.extframework.boot.maven.MavenLikeResolver
+import dev.extframework.boot.monad.Either
 import dev.extframework.boot.monad.Tagged
 import dev.extframework.boot.monad.Tree
-import dev.extframework.common.util.resolve
+import dev.extframework.boot.util.mapAsync
 import dev.extframework.gradle.api.source.DependencySourceProvider
 import kotlinx.coroutines.awaitAll
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.nio.file.Path
-import kotlin.io.path.Path
 
 class MavenSourceProvider(
     override val provider: DependencyResolverProvider<*, SimpleMavenArtifactRequest, *>
@@ -46,24 +39,26 @@ class MavenSourceResolver :
         get() = SourceDependencyNode::class.java
     override val metadataType: Class<SimpleMavenArtifactMetadata>
         get() = SimpleMavenArtifactMetadata::class.java
-    override val context: ResolutionContext<SimpleMavenRepositorySettings, SimpleMavenArtifactRequest, SimpleMavenArtifactMetadata> =
-        ResolutionContext(SimpleMaven)
+    override val factory: RepositoryFactory<SimpleMavenRepositorySettings, ArtifactRepository<SimpleMavenRepositorySettings, SimpleMavenArtifactRequest, SimpleMavenArtifactMetadata>>
+        get() = SimpleMaven
+
 
     override fun load(
         data: ArchiveData<SimpleMavenDescriptor, CachedArchiveResource>,
         accessTree: ArchiveAccessTree,
         helper: ResolutionHelper
-    ): Job<SourceDependencyNode<SimpleMavenDescriptor>> = job {
+    ): SourceDependencyNode<SimpleMavenDescriptor> {
         throw Exception("Cannot load a source node")
     }
 
-    override fun cache(
-        artifact: Artifact<SimpleMavenArtifactMetadata>,
+    override suspend fun cache(
+        metadata: SimpleMavenArtifactMetadata,
+        parents: List<Tree<Either<SimpleMavenArtifactMetadata, TaggedIArchive>>>,
         helper: CacheHelper<SimpleMavenDescriptor>
-    ): AsyncJob<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>> = asyncJob {
+    ): Tree<TaggedIArchive> {
         // TODO error message for trying to load non-source jars
         try {
-            val byteArray = artifact.metadata.jar()?.let {
+            val byteArray = metadata.jar()?.let {
                 ByteArrayOutputStream().use { bos ->
                     it.open().collect {
                         bos.write(it)
@@ -80,15 +75,15 @@ class MavenSourceResolver :
             // Nothing
         } catch (e: Exception) {
             // TODO this is bad design.
-            System.err.println("Encountered error when downloading sources for '${artifact.metadata.descriptor}'. " + e.message)
+            System.err.println("Encountered error when downloading sources for '${metadata.descriptor}'. " + e.message)
         }
 
-        helper.newData(
-            artifact.metadata.descriptor,
-            artifact.parents.mapAsync {
+        return helper.newData(
+            metadata.descriptor,
+            parents.mapAsync {
                 helper.cache(
                     it, this@MavenSourceResolver,
-                )().merge()
+                )
             }.awaitAll()
         )
     }

@@ -1,9 +1,10 @@
 import dev.extframework.gradle.common.extFramework
+import dev.extframework.gradle.common.*
 
 plugins {
     kotlin("jvm") version "2.1.10"
 
-    id("dev.extframework.common") version "1.0.56"
+    id("dev.extframework.common") version "1.1"
 }
 
 repositories {
