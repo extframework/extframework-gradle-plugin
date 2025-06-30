@@ -1,6 +1,6 @@
 package dev.extframework.gradle
 
-import dev.extframework.boot.archive.ArchiveGraph
+import dev.extframework.extloader.DefaultExtensionEnvironment
 import dev.extframework.gradle.api.*
 import dev.extframework.gradle.api.ExtframeworkExtension.BuildCache
 import dev.extframework.gradle.api.util.newListProperty
@@ -9,15 +9,10 @@ import dev.extframework.gradle.api.util.newSetProperty
 import dev.extframework.gradle.api.util.property
 import dev.extframework.gradle.config.getTomlConfig
 import dev.extframework.gradle.config.parseTomlConfig
-import dev.extframework.gradle.source.SourcePartitionResolver
-import dev.extframework.gradle.SourcesArchiveGraph
-import dev.extframework.tooling.api.ExtensionLoader
 import dev.extframework.tooling.api.TOOLING_API_VERSION
-import dev.extframework.tooling.api.extension.partition.PartitionResolver
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSetContainer
-import dev.extframework.common.util.resolve
 
 internal open class DefaultExtframeworkExtension(
     override val project: Project,
@@ -25,22 +20,27 @@ internal open class DefaultExtframeworkExtension(
 ) : ExtframeworkExtension {
     override val configuration = parseTomlConfig(getTomlConfig(project.layout.projectDirectory.asFile.toPath()))
 
-    override val loader: ExtensionLoader = ExtensionLoader(
-        worker.dataDir,
-        this
-    )
-    override val defaultEnvironment = BuildEnvironment(
-        loader.rootEnvironment.compose(
-            "${project.path} root"
-        ), this
+    override val rootEnvironment: BuildEnvironment = BuildEnvironment(
+        DefaultExtensionEnvironment("root"), this
     )
 
-    override val sourcesGraph: ArchiveGraph = SourcesArchiveGraph(worker.dataDir resolve "archives")
-    override val partitionSourceResolver: PartitionResolver = SourcePartitionResolver(
-        loader.extensionResolver.accessBridge,
-        loader.environmentRegistry,
-        defaultEnvironment.name
-    )
+//    override val loader: ExtensionLoader = ExtensionLoader(
+//        worker.dataDir,
+//        this
+//    )
+//
+//    override val defaultEnvironment = BuildEnvironment(
+//        loader.rootEnvironment.compose(
+//            "${project.path} root"
+//        ), this
+//    )
+//
+//    override val sourcesGraph: ArchiveGraph = SourcesArchiveGraph(worker.dataDir resolve "archives")
+//    override val partitionSourceResolver: PartitionResolver = SourcePartitionResolver(
+//        loader.extensionResolver.accessBridge,
+//        loader.environmentRegistry,
+//        defaultEnvironment.name
+//    )
 
     override val partitions = DefaultPartitionContainer(this)
     override val sourceSets: SourceSetContainer by lazy { project.extensions.getByType(SourceSetContainer::class.java) }
@@ -69,15 +69,13 @@ internal open class DefaultExtframeworkExtension(
         project.property(),
         project.newListProperty()
     )
-
-    override val environments: MutableList<BuildEnvironment> = arrayListOf(
-        BuildEnvironment(
-            defaultEnvironment, this
-        )
+    override val environments: MutableList<BuildEnvironment> = mutableListOf(
+        rootEnvironment
+//        BuildEnvironment(
+//            rootEnvironment, this
+//        )
     )
     override val build: BuildCache = BuildCache(
-        ArrayList(),
-        ArrayList(),
         ArrayList(),
         ArrayList(),
         ArrayList(),
@@ -89,7 +87,7 @@ internal open class DefaultExtframeworkExtension(
     }
 
     init {
-        loader.environmentRegistry.register(defaultEnvironment.name, defaultEnvironment)
+//        loader.environmentRegistry.register(defaultEnvironment.name, defaultEnvironment)
     }
 
     override fun partitions(action: Action<NamedDomainPartitionContainer>) {

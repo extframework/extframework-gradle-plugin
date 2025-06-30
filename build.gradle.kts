@@ -4,7 +4,7 @@ import dev.extframework.gradle.common.*
 plugins {
     kotlin("jvm") version "2.1.10"
 
-    id("dev.extframework.common") version "1.1"
+    id("dev.extframework.common") version "1.1.1"
 }
 
 repositories {
@@ -13,5 +13,11 @@ repositories {
 }
 
 tasks.wrapper {
-    gradleVersion = "8.6-rc-1"
+    gradleVersion = "8.14.2"
+}
+
+allprojects {
+    repositories {
+        mavenLocal()
+    }
 }

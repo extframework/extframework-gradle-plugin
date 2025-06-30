@@ -1,6 +1,5 @@
 package dev.extframework.gradle.source
 
-import com.durganmcbroom.artifact.resolver.Artifact
 import com.durganmcbroom.artifact.resolver.ArtifactRepository
 import com.durganmcbroom.artifact.resolver.RepositoryFactory
 import com.durganmcbroom.artifact.resolver.simple.maven.*
@@ -10,13 +9,15 @@ import dev.extframework.boot.archive.*
 import dev.extframework.boot.dependency.DependencyResolverProvider
 import dev.extframework.boot.maven.MavenLikeResolver
 import dev.extframework.boot.monad.Either
-import dev.extframework.boot.monad.Tagged
 import dev.extframework.boot.monad.Tree
 import dev.extframework.boot.util.mapAsync
 import dev.extframework.gradle.api.source.DependencySourceProvider
 import kotlinx.coroutines.awaitAll
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.nio.file.Path
+import kotlin.io.path.Path
 
 class MavenSourceProvider(
     override val provider: DependencyResolverProvider<*, SimpleMavenArtifactRequest, *>
@@ -30,11 +31,13 @@ class MavenSourceProvider(
             )
         )
     }
+
+    override val id: String by provider::id
 }
 
 class MavenSourceResolver :
     MavenLikeResolver<SourceDependencyNode<SimpleMavenDescriptor>, SimpleMavenArtifactMetadata> {
-    override val name: String = "simple-maven:sources"
+    override val id: String = "simple-maven:sources"
     override val nodeType: Class<in SourceDependencyNode<SimpleMavenDescriptor>>
         get() = SourceDependencyNode::class.java
     override val metadataType: Class<SimpleMavenArtifactMetadata>
@@ -42,6 +45,14 @@ class MavenSourceResolver :
     override val factory: RepositoryFactory<SimpleMavenRepositorySettings, ArtifactRepository<SimpleMavenRepositorySettings, SimpleMavenArtifactRequest, SimpleMavenArtifactMetadata>>
         get() = SimpleMaven
 
+    override fun pathForDescriptor(descriptor: SimpleMavenDescriptor, classifier: String, type: String): Path {
+        return Path(
+            descriptor.group.replace('.', File.separatorChar),
+            descriptor.artifact,
+            descriptor.version,
+            "${descriptor.artifact}-${descriptor.version}-$classifier.$type"
+        )
+    }
 
     override fun load(
         data: ArchiveData<SimpleMavenDescriptor, CachedArchiveResource>,

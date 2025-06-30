@@ -22,7 +22,8 @@ import kotlin.io.path.toPath
 import kotlin.reflect.KClass
 
 class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> {
-    override val type: String = "gradle"
+    override val id: String = "gradle"
+
     override suspend fun cache(
         metadata: PartitionArtifactMetadata,
         parents: List<Tree<Either<PartitionArtifactMetadata, TaggedIArchive>>>,
@@ -30,7 +31,7 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
     ): Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>> {
         val parentGradlePartitions = helper.erm.parents.mapAsync {
             try {
-                helper.cache("gradle", helper.defaultEnvironment, it)
+                helper.cache("gradle", it)
             } catch (_: ArchiveException.ArchiveNotFound) {
                 null
             }
@@ -38,14 +39,14 @@ class GradlePartitionLoader : ExtensionPartitionLoader<GradlePartitionMetadata> 
 
         val parentTweakerPartitions = helper.erm.parents.mapAsync {
             try {
-                helper.cache("tweaker", helper.defaultEnvironment, it)
+                helper.cache("tweaker",  it)
             } catch (_: ArchiveException.ArchiveNotFound) {
                 null
             }
         }
 
         val tweakerPartition = if (helper.erm.partitions.any { model -> model.name == "tweaker" }) {
-            listOf(helper.cache("tweaker", helper.defaultEnvironment))
+            listOf(helper.cache("tweaker"))
         } else listOf()
 
         return helper.newData(

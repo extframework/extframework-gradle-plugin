@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.invocation.Gradle
 import org.gradle.util.GradleVersion
 import java.io.FileOutputStream
 import kotlin.io.path.exists
@@ -23,7 +24,7 @@ import kotlin.io.path.writeText
  */
 
 class ExtframeworkPlugin : Plugin<Project> {
-    override fun apply(target: Project) {
+    override fun apply(target: Project): Unit = target.run {
         val minVersion = GradleVersion.version("8.14.2")
 
         if (GradleVersion.current() < minVersion) {

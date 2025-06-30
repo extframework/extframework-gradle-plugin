@@ -14,7 +14,7 @@ class TweakerEntry : EnvironmentTweaker {
             private set
     }
 
-    override fun tweak(environment: ExtensionEnvironment): Job<Unit> = job {
+    override fun tweak(environment: ExtensionEnvironment) {
         Tweaker2Entry()
         tweaked = true
     }

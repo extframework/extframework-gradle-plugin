@@ -1,5 +1,6 @@
 package dev.extframework.gradle.api
 
+import dev.extframework.common.util.resolve
 import java.nio.file.Path
 
 /**
@@ -15,6 +16,7 @@ import java.nio.file.Path
  */
 public interface EnvironmentInitializer {
     public val dataDir: Path
+    public val mock: MockPaths
 
     public var needsReload: Boolean
     public var bootstrapped: Boolean
@@ -27,5 +29,11 @@ public interface EnvironmentInitializer {
 
     public suspend fun configure(
         extension: ExtframeworkExtension,
+    )
+
+    public data class MockPaths(
+        val path: Path,
+        val repository: Path = path resolve ".m2",
+        val archives: Path = path resolve "archives",
     )
 }

@@ -4,6 +4,7 @@ import com.durganmcbroom.artifact.resolver.simple.maven.SimpleMavenDescriptor
 import dev.extframework.boot.archive.ArchiveGraph
 import dev.extframework.boot.archive.ArchiveTreeAuditContext
 import dev.extframework.boot.archive.ArchiveTreeAuditor
+import dev.extframework.boot.archive.DefaultArchiveGraph
 import dev.extframework.boot.dependency.DependencyTypeContainer
 import dev.extframework.boot.maven.MavenConstraintNegotiator
 import dev.extframework.boot.maven.MavenResolverProvider
@@ -11,92 +12,129 @@ import dev.extframework.boot.monad.removeIf
 import dev.extframework.common.util.readInputStream
 import dev.extframework.common.util.resolve
 import dev.extframework.common.util.runCatching
+import dev.extframework.extloader.ArchiveGraphView
+import dev.extframework.extloader.DefaultExtensionEnvironment
 import dev.extframework.extloader.DefaultExtensionLoader
-import dev.extframework.extloader.RootExtensionEnvironment
+import dev.extframework.extloader.ExtensionResolverView
+//import dev.extframework.extloader.RootExtensionEnvironment
 import dev.extframework.extloader.extension.DefaultExtensionResolver
+import dev.extframework.extloader.extension.ExtensionLayerClassLoader
 import dev.extframework.extloader.extension.partition.DefaultPartitionResolver
 import dev.extframework.gradle.api.ExtframeworkExtension
+import dev.extframework.gradle.api.descriptor
 import dev.extframework.`object`.ObjectContainerImpl
 import dev.extframework.tooling.api.ExtensionLoader
-import dev.extframework.tooling.api.environment.EnvironmentRegistry
+//import dev.extframework.tooling.api.environment.EnvironmentRegistry
 import dev.extframework.tooling.api.environment.ExtensionEnvironment
+import dev.extframework.tooling.api.environment.ObjectContainerAttribute
+import dev.extframework.tooling.api.environment.SetView
+import dev.extframework.tooling.api.environment.ValueAttribute
+import dev.extframework.tooling.api.environment.dependencyTypesAttrKey
+import dev.extframework.tooling.api.environment.wrkDirAttrKey
+import dev.extframework.tooling.api.extension.ExtensionClassLoader
 import dev.extframework.tooling.api.extension.ExtensionNode
 import dev.extframework.tooling.api.extension.ExtensionResolver
+import dev.extframework.tooling.api.extension.ExtensionRuntimeModel
 import dev.extframework.tooling.api.extension.artifact.ExtensionDescriptor
+import dev.extframework.tooling.api.extension.artifact.ExtensionRepositorySettings
 import dev.extframework.tooling.api.extension.partition.artifact.PartitionDescriptor
 import dev.extframework.tooling.api.tweaker.EnvironmentTweaker
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.Path
+import kotlin.text.get
 
 internal fun ExtensionLoader(
     path: Path,
     owner: ExtframeworkExtension
 ): ExtensionLoader {
-    val graph = ClassesArchiveGraph(path resolve "archives")
-    auditors(graph)
-    val dependencyTypes = DependencyTypeContainer(graph)
-    dependencyTypes.register("simple-maven", MavenResolverProvider())
+    val environment by owner::rootEnvironment
 
-    val environment = RootExtensionEnvironment(
-        "root",
-        path,
-        dependencyTypes,
-    )
+    val graph = ClassesArchiveGraph(path resolve "archives"); auditors(graph)
 
-    val environmentRegistry: EnvironmentRegistry = ObjectContainerImpl()
-    environmentRegistry.register("root", environment)
+    val dependencyTypes: DependencyTypeContainer = ObjectContainerImpl()
+    val maven = MavenResolverProvider()
+
+    dependencyTypes.register(maven)
+    graph.resolvers.register(maven.resolver)
+
+    environment += ObjectContainerAttribute(dependencyTypesAttrKey, dependencyTypes)
+    environment += ValueAttribute(wrkDirAttrKey, path)
 
     val resolver = GradleExtensionResolver(
         { desc ->
-            false
-
-            // TODO the current issue is that boot always fully re-resolves artifacts (change below would break
-            //    offline caching mode)
-//            if (!owner.worker.bootstrapped) false
-//            else owner.worker.managed.any {
-//                it.model.descriptor == desc
-//            }
+            if (!owner.worker.bootstrapped) false
+            else owner.worker.managed.any {
+                it.model.descriptor == desc
+            }
         },
+        owner.worker.mock.archives,
         owner.project.buildscript.classLoader,
-        environmentRegistry,
-        "root"
+        environment,
     )
 
-    return GradleExtensionLoader(resolver, graph, environment, environmentRegistry, owner)
+    return GradleExtensionLoader(resolver, graph, owner)
 }
 
-private class GradleExtensionLoader(
-    extensionResolver: ExtensionResolver,
+private open class GradleExtensionLoader(
+    override val extensionResolver: GradleExtensionResolver,
     graph: ArchiveGraph,
-    rootEnvironment: ExtensionEnvironment,
-    environmentRegistry: EnvironmentRegistry,
     private val extension: ExtframeworkExtension
-) : DefaultExtensionLoader(extensionResolver, graph, rootEnvironment, environmentRegistry) {
+) : DefaultExtensionLoader(extensionResolver, graph) {
+    protected open val tweaked: MutableSet<ExtensionDescriptor> = HashSet()
+
     override suspend fun tweak(
         extensions: List<ExtensionNode>,
         environment: ExtensionEnvironment
     ) {
+        val extensionDescriptors = extensions.mapTo(HashSet()) { it.descriptor }
         // This is copied from the TweakerPartitionLoader which is just messy, there should be a better way to do this.
-        val tweakers = extension.build.tweakers.map {
-            runCatching(ClassNotFoundException::class) {
-                extension.project.buildscript.classLoader.loadClass(it)
-            } ?: throw IllegalArgumentException(
-                "Could not load tweaker partition because the class: '${it}' couldn't be found."
-            )
-        }.map { tweakerClass ->
-            val extensionConstructor =
-                runCatching(NoSuchMethodException::class) { tweakerClass.getConstructor() }
-                    ?: throw IllegalArgumentException("Could not find no-arg constructor in class: '${tweakerClass}' in tweaker partition.")
+        val tweakers = extension.build.parents
+            .filter { extensionDescriptors.contains(it.node.descriptor) }
+            .filter { tweaked.add(it.node.descriptor) }
+            .mapNotNull { it.tweakerName }
+            .map {
+                runCatching(ClassNotFoundException::class) {
+                    extension.project.buildscript.classLoader.loadClass(it)
+                } ?: throw IllegalArgumentException(
+                    "Could not load tweaker partition because the class: '${it}' couldn't be found."
+                )
+            }.map { tweakerClass ->
+                val extensionConstructor =
+                    runCatching(NoSuchMethodException::class) { tweakerClass.getConstructor() }
+                        ?: throw IllegalArgumentException("Could not find no-arg constructor in class: '${tweakerClass}' in tweaker partition.")
 
-            val instance = extensionConstructor.newInstance() as? EnvironmentTweaker
-                ?: throw IllegalArgumentException("Tweaker class: '${tweakerClass}' does not implement: '${EnvironmentTweaker::class.qualifiedName}'.")
+                val instance = extensionConstructor.newInstance() as? EnvironmentTweaker
+                    ?: throw IllegalArgumentException("Tweaker class: '${tweakerClass}' does not implement: '${EnvironmentTweaker::class.qualifiedName}'.")
 
-            instance
-        }
+                instance
+            }
 
         tweakers.forEach {
             it.tweak(environment)
+        }
+    }
+
+    override fun compose(into: ExtensionEnvironment): ExtensionEnvironment.Attribute.View<*> {
+        return View(this, into)
+    }
+
+    private class View(
+        override var reference: GradleExtensionLoader,
+        environment: ExtensionEnvironment
+    ) : ExtensionEnvironment.Attribute.View<GradleExtensionLoader>, GradleExtensionLoader(
+        GradleExtensionResolver.View(
+            { reference.extensionResolver },
+            environment
+        ),
+        ArchiveGraphView { reference.graph },
+        reference.extension
+    ) {
+        override var isValid: Boolean = true
+        override val key: ExtensionEnvironment.Attribute.Key<*> = ExtensionLoader
+
+        override val tweaked: MutableSet<ExtensionDescriptor> = SetView {
+            reference.tweaked
         }
     }
 }
@@ -149,22 +187,23 @@ private fun parsePackagedDependencies(): Set<SimpleMavenDescriptor> {
     return dependencies
 }
 
-internal class GradleExtensionResolver(
+internal open class GradleExtensionResolver(
     val isMocked: (ExtensionDescriptor) -> Boolean,
+    val mockBasePath: Path,
     classloader: ClassLoader,
-    environmentRegistry: EnvironmentRegistry,
-    defaultEnvironment: String,
-) : DefaultExtensionResolver(
-    classloader, environmentRegistry, defaultEnvironment
-) {
-    private val tempDir = Files.createTempDirectory("mocked-extensions")
+    environment: ExtensionEnvironment,
 
+//    environmentRegistry: EnvironmentRegistry,
+//    defaultEnvironment: String,
+) : DefaultExtensionResolver(
+    classloader, environment
+) {
     override val partitionResolver: DefaultPartitionResolver = object : DefaultPartitionResolver(
-        accessBridge, environmentRegistry, defaultEnvironment
+        accessBridge, environment//environmentRegistry, defaultEnvironment
     ) {
         override fun pathForDescriptor(descriptor: PartitionDescriptor, classifier: String, type: String): Path {
             val basePath = if (isMocked(descriptor.extension)) {
-                tempDir
+                mockBasePath
             } else Path("extensions")
 
             return basePath resolve super.pathForDescriptor(descriptor, classifier, type)
@@ -173,9 +212,59 @@ internal class GradleExtensionResolver(
 
     override fun pathForDescriptor(descriptor: ExtensionDescriptor, classifier: String, type: String): Path {
         val basePath = if (isMocked(descriptor)) {
-            tempDir
+            mockBasePath
         } else Path("extensions")
 
         return basePath resolve super.pathForDescriptor(descriptor, classifier, type)
+    }
+
+    internal class View(
+        private val _reference: () -> GradleExtensionResolver,
+        environment: ExtensionEnvironment
+    ) : GradleExtensionResolver(
+        _reference().isMocked,
+        _reference().mockBasePath,
+        ClassLoader.getSystemClassLoader(),
+        environment
+    ) {
+        private val reference: ExtensionResolver
+            get() = _reference()
+        override val layerLoader: ExtensionLayerClassLoader = ExtensionLayerClassLoader(
+            reference.layerLoader,
+            "Extension Layer ${environment.name}"
+        )
+
+        // TODO A bug or unfortunate feature in kotlin forces us to have to do this (instead of just
+        //    overriding the property). This should be reported eventually (check out the java decomp
+        //    to see whats wrong)
+        private var _accessBridge: ExtensionResolver.AccessBridge? = null
+        override val accessBridge: ExtensionResolver.AccessBridge
+            get() {
+                if (_accessBridge == null) {
+                    _accessBridge = object : ExtensionResolver.AccessBridge {
+                        override fun classLoaderFor(descriptor: ExtensionDescriptor): ExtensionClassLoader {
+                            return (extensionClassloaders[descriptor.toIdentifier()])
+                                ?: reference.accessBridge.classLoaderFor(
+                                    descriptor
+                                )
+                        }
+
+                        override fun ermFor(descriptor: ExtensionDescriptor): ExtensionRuntimeModel {
+                            return extensionMetadata[descriptor.toIdentifier()]?.erm ?: reference.accessBridge.ermFor(
+                                descriptor
+                            )
+                        }
+
+                        override fun repositoryFor(descriptor: ExtensionDescriptor): ExtensionRepositorySettings {
+                            return extensionMetadata[descriptor.toIdentifier()]?.repository
+                                ?: reference.accessBridge.repositoryFor(
+                                    descriptor
+                                )
+                        }
+                    }
+                }
+
+                return _accessBridge!!
+            }
     }
 }

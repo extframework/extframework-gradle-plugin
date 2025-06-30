@@ -13,7 +13,7 @@ import dev.extframework.boot.monad.Tagged
 import dev.extframework.boot.monad.Tree
 import dev.extframework.boot.util.mapAsync
 import dev.extframework.gradle.api.source.DependencySourceProvider
-import dev.extframework.gradle.api.source.SourceDependencyTypeContainer
+import dev.extframework.`object`.ObjectContainer
 import dev.extframework.tooling.api.extension.PartitionRuntimeModel
 import dev.extframework.tooling.api.extension.partition.PartitionLoadException
 import kotlinx.coroutines.Deferred
@@ -22,7 +22,7 @@ internal suspend fun cacheSourceDependencies(
     partition: PartitionRuntimeModel,
     extName: String,
     dependencyProviders: DependencyTypeContainer,
-    sources: SourceDependencyTypeContainer,
+    sources: ObjectContainer<DependencySourceProvider<*>>,
     helper: CacheHelper<*>,
 ): List<Deferred<Tree<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>?>> =
     partition.dependencies.mapAsync { dependency ->
@@ -51,7 +51,7 @@ internal suspend fun cacheSourceDependencies(
             ) {
                 extName asContext "Extension name"
                 settings.settings asContext "Repository settings"
-                provider.name asContext "Dependency resolution provider"
+                provider.id asContext "Dependency resolution provider"
             }
 
             Triple(depReq, repoSettings, provider)
@@ -69,7 +69,7 @@ internal suspend fun cacheSourceDependencies(
         }
 
         val cacheResult = requests.mapNotNull cache@{ (request, settings, provider) ->
-            val sources = (sources.get(provider.name) ?: return@cache null)
+            val sources = (sources[provider.id] ?: return@cache null)
                     as DependencySourceProvider<ArtifactRequest<ArtifactMetadata.Descriptor>>
 
             runCatching {

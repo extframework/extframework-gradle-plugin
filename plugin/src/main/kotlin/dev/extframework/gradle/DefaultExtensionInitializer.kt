@@ -8,29 +8,30 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import dev.extframework.boot.archive.*
 import dev.extframework.boot.dependency.DependencyResolverProvider
-import dev.extframework.boot.maven.MavenConstraintNegotiator
 import dev.extframework.boot.monad.Tagged
 import dev.extframework.boot.monad.toList
-import dev.extframework.common.util.deleteAll
-import dev.extframework.common.util.filterDuplicates
-import dev.extframework.common.util.make
-import dev.extframework.common.util.readInputStream
-import dev.extframework.common.util.resolve
+import dev.extframework.common.util.*
+import dev.extframework.extloader.extension.partition.TweakerPartitionLoader
 import dev.extframework.extloader.extension.partition.TweakerPartitionMetadata
 import dev.extframework.extloader.extension.partition.TweakerPartitionNode
 import dev.extframework.extloader.util.emptyArchiveReference
 import dev.extframework.gradle.ExtframeworkPlugin.Companion.EXTFRAMEWORK_CENTRAL
 import dev.extframework.gradle.api.*
-import dev.extframework.gradle.api.source.SourceDependencyTypeContainer
+import dev.extframework.gradle.api.source.SourcesManager
+import dev.extframework.gradle.api.source.sourceDependencyTypesAttrKey
 import dev.extframework.gradle.partition.GradlePartitionLoader
 import dev.extframework.gradle.partition.GradlePartitionMetadata
+import dev.extframework.gradle.source.DefaultSourcesManager
 import dev.extframework.gradle.source.MavenSourceProvider
+import dev.extframework.gradle.source.SourcePartitionResolver
 import dev.extframework.gradle.tasks.GenerateErm
 import dev.extframework.gradle.util.removePrefix
 import dev.extframework.gradle.util.setupProject
 import dev.extframework.gradle.util.write
 import dev.extframework.tooling.api.ExtensionLoader
 import dev.extframework.tooling.api.environment.*
+import dev.extframework.tooling.api.exception.StructuredException
+import dev.extframework.tooling.api.extension.ExtensionNode
 import dev.extframework.tooling.api.extension.ExtensionRepository
 import dev.extframework.tooling.api.extension.ExtensionRuntimeModel
 import dev.extframework.tooling.api.extension.artifact.ExtensionDescriptor
@@ -53,9 +54,6 @@ import kotlin.io.path.exists
 import kotlin.io.path.extension
 import kotlin.io.path.writeBytes
 
-// TODO any 'mocked' artifact (which currently are only maven ones and extensions) should be deleted
-//   from the archives cache at the start of configuration because they have the possibility of having
-//   an invalid access tree.
 open class DefaultExtensionInitializer(
     root: Project
 ) : EnvironmentInitializer {
@@ -64,9 +62,12 @@ open class DefaultExtensionInitializer(
 
     override val dataDir = root.layout.projectDirectory.asFile.toPath() resolve ".extframework"
 
-    val repoDir = dataDir resolve "mock-ext"
     val buildPath = dataDir resolve "buildpath"
     val buildFingerprint = buildPath resolve ".fingerprint.json"
+
+    override val mock: EnvironmentInitializer.MockPaths = EnvironmentInitializer.MockPaths(
+        dataDir resolve "mock",
+    )
 
     override var needsReload = false
     private val archiveDataCache = HashMap<ArtifactMetadata.Descriptor, ArchiveData<*, *>>()
@@ -91,8 +92,9 @@ open class DefaultExtensionInitializer(
     override suspend fun bootstrap(
         extension: ExtframeworkExtension,
     ) {
-        setupProject(extension)
+        deleteMock()
         tweakRoot(extension)
+        setupProject(extension)
 
         val descriptors = extension.configuration.parents
             .filterNot { it.value.isProjectBuild }
@@ -108,19 +110,26 @@ open class DefaultExtensionInitializer(
                 ) to attr.repository
             }
 
-        extension.loader.cache(
+        val loader = extension.rootEnvironment[ExtensionLoader]
+
+        loader.cache(
             descriptors.associate { (descriptor, repository) ->
                 descriptor to toRepository(extension.configuration, repository)
             }
         )
 
-        val parents = extension.loader.load(descriptors.map { it.first })
-        extension.build.parents.addAll(parents)
+        val parents = loader.load(descriptors.map { it.first })
 
-        val fingerprint = extension.loader.applyGradle(extension)
+        val fingerprint = loader.applyGradle(extension, parents)
 
-        extension.build.plugins += fingerprint.plugins
-        extension.build.tweakers += fingerprint.tweakers
+        extension.build.parents += parents.map {
+            ExtframeworkExtension.BuildCache.ParentMetadata(
+                it,
+                fingerprint.parents[it.descriptor.name]?.plugin,
+                fingerprint.parents[it.descriptor.name]?.tweaker
+            )
+
+        }
         extension.build.fingerprint += fingerprint.finger
         extension.build.content += fingerprint.content
 
@@ -147,40 +156,33 @@ open class DefaultExtensionInitializer(
         extension: ExtframeworkExtension
     ) {
         if (!configured.add(extension)) return
+//
+//        pluginObjects.forEach { plugin ->
+//            plugin.tweak(extension.defaultEnvironment)
+//        }
 
-        val pluginObjects = extension.build.plugins.map {
-            extension.project.plugins.apply(
-                // At this point in configuration, gradle should handle class loading.
-                extension.project.buildscript.classLoader.loadClass(it) as Class<GradleEntrypoint>
-            )
-        }
+//        val environments = extension.rootEnvironment.find(environmentEmitters)?.flatMap {
+//            it.emit(extension).map { env ->
+//                BuildEnvironment(env, extension)
+//            }
+//        } ?: listOf()
 
-        pluginObjects.forEach { plugin ->
-            plugin.tweak(extension.defaultEnvironment)
-        }
+//        for (environment in environments) {
+////            extension.loader.environmentRegistry.register(environment.name, environment)
+////
+//            extension.loader.tweak(
+//                extension.build.parents,
+//                environment
+//            )
+//        }
 
-        val environments = extension.defaultEnvironment.find(environmentEmitters)?.flatMap {
-            it.emit(extension).map { env ->
-                BuildEnvironment(env, extension)
-            }
-        } ?: listOf()
-
-        for (environment in environments) {
-            extension.loader.environmentRegistry.register(environment.name, environment)
-
-            extension.loader.tweak(
-                extension.build.parents,
-                environment
-            )
-        }
-
-        extension.environments += environments
+//        extension.environments += environments
 
         setupPartitions(extension)
     }
 
     private suspend fun setupPartitions(
-        extension: ExtframeworkExtension,
+        extension: ExtframeworkExtension
     ) {
         val config = extension.configuration
 
@@ -238,152 +240,172 @@ open class DefaultExtensionInitializer(
         }.toMap()
 
         val repository = ExtensionRepositorySettings.local(
-            path = repoDir.toString()
+            path = mock.repository.toString()
         )
 
-        deleteExtensionMetadata(extension, descriptor)
-
-        extension.loader.cache(
+        extension.rootEnvironment[ExtensionLoader].cache(
             mapOf(
                 descriptor to repository
             )
         )
 
-        extension.loader.load(
+        extension.rootEnvironment[ExtensionLoader].load(
             listOf(descriptor),
         )
 
-        for (environment in extension.environments) {
-            val configurators = environment[environmentConfigurators]
-
-            for (configurator in configurators) {
-                configurator.configure(environment, object : BuildEnvironmentConfigurator.Helper {
-                    override val repository: ExtensionRepositorySettings =
-                        ExtensionRepositorySettings.local(
-                            path = repoDir.toString()
-                        )
-
-                    override fun attachDependencies(
-                        partition: PartitionHandler<*>,
-                        classes: List<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>,
-                    ) {
-                        val gradleManaged = partition.model.dependencies.get().mapNotNull {
-                            val req = it.evaluate() ?: return@mapNotNull null
-
-                            environment[dependencyTypesAttrKey].container.get("simple-maven")?.parseRequest(
-                                req
-                            )?.descriptor as? SimpleMavenDescriptor
-                        }
-
-                        fun transform(
-                            it: Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>
-                        ): Iterable<DependencyType> {
-                            val archive = it.value
-                            val dependencyDescriptor = archive.descriptor
-
-                            // Gradle handles this dependency already
-                            if (gradleManaged.contains(dependencyDescriptor)) {
-                                return listOf()
-                            }
-
-                            when (dependencyDescriptor) {
-                                is PartitionDescriptor -> {
-                                    val parentBuild = accessibleParents[dependencyDescriptor.extension]
-
-                                    if (parentBuild != null) {
-                                        val parentSourceSet =
-                                            parentBuild.partitions.named(dependencyDescriptor.partition).get()
-
-                                        return setOf(
-                                            SourceSetDependency(parentSourceSet.sourceSet),
-                                        )
-                                    }
-                                }
-
-                                is SimpleMavenDescriptor -> {
-                                    val build = accessibleBuilds[dependencyDescriptor]
-
-                                    if (build != null) {
-                                        return setOf(
-                                            ProjectDependency(build)
-                                        )
-                                    }
-                                }
-                            }
-
-                            return when (archive) {
-                                is ArchiveData<*, *> -> {
-                                    archive.resources.values
-                                        .filterIsInstance<CachedArchiveResource>()
-                                        .mapTo(HashSet()) { r ->
-                                            PathDependency(r.path)
-                                        }
-                                }
-
-                                is ExtensionPartitionContainer<*, *> -> {
-                                    val node = archive.node
-                                    when (node) { // These are the only 2 partitions that can be loaded at this point
-                                        is GradlePartitionNode -> setOf(
-                                            PathDependency(
-                                                node.jarPath
-                                            )
-                                        )
-
-                                        is TweakerPartitionNode -> setOf(
-                                            PathDependency(
-                                                node.jarPath
-                                            )
-                                        )
-
-                                        else -> setOf()
-                                    }
-                                }
-
-                                else -> {
-                                    archiveDataCache[archive.descriptor]
-                                        ?.resources
-                                        ?.values
-                                        ?.filterIsInstance<CachedArchiveResource>()
-                                        ?.mapTo(HashSet()) { r ->
-                                            PathDependency(r.path)
-                                        } ?: setOf()
-                                }
-                            }
-                        }
-
-                        val classDependencies = classes
-                            .toSet()
-                            .flatMapTo(HashSet(), ::transform)
-
-//                        val sourceDependencies = sources
-//                            .toSet()
-//                            .flatMapTo(HashSet(), ::transform)
-
-                        for (dependency in classDependencies) {
-                            extension.project.dependencies.add(
-                                partition.sourceSet.implementationConfigurationName,
-                                dependency.toNotation(extension)
-                            )
-                        }
-                    }
-                })
+        DefaultEntrypoint().configure(extension, object : Helper(extension, accessibleParents, accessibleBuilds) {
+            override suspend fun tweak(environment: ExtensionEnvironment) {
+                throw UnsupportedOperationException()
             }
+        })
+
+        for (parent in extension.build.parents) {
+            val entrypoint = try {
+                val cls =
+                    extension.project.buildscript.classLoader.loadClass(parent.pluginName ?: continue) as Class<GradleEntrypoint>
+
+                cls.getConstructor().newInstance()
+            } catch (e: Throwable) {
+                throw StructuredException(
+                    GradleExceptions.EntrypointConfigurationFailed,
+                    e,
+                    "Failed to create an entrypoint"
+                ) {
+                    parent asContext "Entrypoint class"
+                    extension.project.path asContext "Extension/Project"
+                }
+            }
+
+            entrypoint.configure(extension, object : Helper(extension, accessibleParents, accessibleBuilds) {
+                override suspend fun tweak(environment: ExtensionEnvironment) {
+                    val parents = parent.node.access.targets
+                        .map { it.relationship.node }
+                        .filterIsInstance<ExtensionNode>()
+                        .filterDuplicates()
+
+                    environment[ExtensionLoader].tweak(
+                        parents + parent.node,
+                        environment
+                    )
+                }
+            })
         }
     }
 
-    // TODO this is hacky, assumes directory layouts of archives.
-    private fun deleteExtensionMetadata(extension: ExtframeworkExtension, descriptor: ExtensionDescriptor) {
-        val pathForDescriptor = extension.loader.extensionResolver.pathForDescriptor(
-            descriptor,
-            "stub_for_deletion",
-            "txt"
-        )
+    private abstract inner class Helper(
+        private val extension: ExtframeworkExtension,
+        private val accessibleParents: Map<ExtensionDescriptor, ExtframeworkExtension>,
+        private val accessibleBuilds: Map<SimpleMavenDescriptor, Project>,
+    ) : GradleEntrypoint.Helper {
+        override val repository: ExtensionRepositorySettings =
+            ExtensionRepositorySettings.local(
+                path = mock.repository.toString()
+            )
 
-        val classesPath = extension.loader.graph.path resolve pathForDescriptor
-        classesPath.parent.deleteAll()
+        override fun attachDependencies(
+            partition: PartitionHandler<*>,
+            classes: List<Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>>,
+        ) {
+            val gradleManaged = partition.model.dependencies.get().mapNotNull {
+                val req = it.evaluate() ?: return@mapNotNull null
 
-        val sourcesPath = extension.sourcesGraph.path resolve pathForDescriptor
-        sourcesPath.parent.deleteAll()
+                extension.rootEnvironment[dependencyTypesAttrKey].container["simple-maven"]?.parseRequest(
+                    req
+                )?.descriptor as? SimpleMavenDescriptor
+            }
+
+            fun transform(
+                it: Tagged<IArchive<*>, ArchiveNodeResolver<*, *, *, *, *>>
+            ): Iterable<DependencyType> {
+                val archive = it.value
+                val dependencyDescriptor = archive.descriptor
+
+                // Gradle handles this dependency already
+                if (gradleManaged.contains(dependencyDescriptor)) {
+                    return listOf()
+                }
+
+                when (dependencyDescriptor) {
+                    is PartitionDescriptor -> {
+                        val parentBuild = accessibleParents[dependencyDescriptor.extension]
+
+                        if (parentBuild != null) {
+                            val parentSourceSet =
+                                parentBuild.partitions.named(dependencyDescriptor.partition).get()
+
+                            return setOf(
+                                SourceSetDependency(parentSourceSet.sourceSet),
+                            )
+                        }
+                    }
+
+                    is SimpleMavenDescriptor -> {
+                        val build = accessibleBuilds[dependencyDescriptor]
+
+                        if (build != null) {
+                            return setOf(
+                                ProjectDependency(build)
+                            )
+                        }
+                    }
+                }
+
+                return when (archive) {
+                    is ArchiveData<*, *> -> {
+                        archive.resources.values
+                            .filterIsInstance<CachedArchiveResource>()
+                            .mapTo(HashSet()) { r ->
+                                PathDependency(r.path)
+                            }
+                    }
+
+                    is ExtensionPartitionContainer<*, *> -> {
+                        val node = archive.node
+                        when (node) { // These are the only 2 partitions that can be loaded at this point
+                            is GradlePartitionNode -> setOf(
+                                PathDependency(
+                                    node.jarPath
+                                )
+                            )
+
+                            is TweakerPartitionNode -> setOf(
+                                PathDependency(
+                                    node.jarPath
+                                )
+                            )
+
+                            else -> setOf()
+                        }
+                    }
+
+                    else -> {
+                        archiveDataCache[archive.descriptor]
+                            ?.resources
+                            ?.values
+                            ?.filterIsInstance<CachedArchiveResource>()
+                            ?.mapTo(HashSet()) { r ->
+                                PathDependency(r.path)
+                            } ?: setOf()
+                    }
+                }
+            }
+
+            val classDependencies = classes
+                .toSet()
+                .flatMapTo(HashSet(), ::transform)
+
+            for (dependency in classDependencies) {
+                extension.project.dependencies.add(
+                    partition.sourceSet.implementationConfigurationName,
+                    dependency.toNotation(extension)
+                )
+                // TODO better testing setup
+                extension.project.dependencies.add(
+                    "testImplementation",
+                    dependency.toNotation(extension)
+                )
+            }
+        }
     }
 
     // TODO better error messages: Right now if a library that we are writing has no publications
@@ -397,7 +419,7 @@ open class DefaultExtensionInitializer(
         maven.publications
             .filterIsInstance<MavenPublication>()
             .forEach {
-                val path = repoDir resolve
+                val path = mock.repository resolve
                         it.groupId.replace('.', File.separatorChar) resolve
                         it.artifactId resolve
                         it.version
@@ -425,7 +447,8 @@ open class DefaultExtensionInitializer(
             }
         }
 
-        val baseDir = repoDir resolve erm.groupId.replace(".", File.separator) resolve erm.name resolve erm.version
+        val baseDir =
+            mock.repository resolve erm.groupId.replace(".", File.separator) resolve erm.name resolve erm.version
 
         val ermPath = baseDir resolve "${erm.name}-${erm.version}-erm.json"
 
@@ -453,7 +476,7 @@ open class DefaultExtensionInitializer(
             it.value.isProjectBuild
         }.map {
             mutableMapOf(
-                "location" to repoDir.toString(),
+                "location" to mock.repository.toString(),
                 "type" to "local"
             )
         }
@@ -465,7 +488,7 @@ open class DefaultExtensionInitializer(
                     repositories = listOf(
                         ExtensionRepository(
                             "simple-maven", mutableMapOf(
-                                "location" to repoDir.toString(),
+                                "location" to mock.repository.toString(),
                                 "type" to "local"
                             )
                         )
@@ -476,38 +499,35 @@ open class DefaultExtensionInitializer(
     }
 
     private suspend fun ExtensionLoader.applyGradle(
-        extension: ExtframeworkExtension
+        extension: ExtframeworkExtension,
+        parents: List<ExtensionNode>
     ): BuildFingerprint {
-        val resolver by extension.loader::extensionResolver
+        val resolver = extension.rootEnvironment[ExtensionLoader].extensionResolver
 
-        val uberGradleParents = extension.build.parents
+        val uberGradleParents = parents
             .filter { archive ->
-                val erm = resolver.accessBridge.ermFor(archive.descriptor)
-                erm.partitions.any { model -> model.type == "gradle" }
+                archive.runtimeModel.partitions.any { model -> model.type == "gradle" }
             }
             .map { archive ->
                 UberParentRequest(
                     PartitionArtifactRequest(
                         archive.descriptor,
                         "gradle",
-                        rootEnvironment.name
                     ),
                     resolver.accessBridge.repositoryFor(archive.descriptor),
                     resolver.partitionResolver
                 )
             }
 
-        val uberTweakerParents = extension.build.parents
+        val uberTweakerParents = parents
             .filter { archive ->
-                val erm = resolver.accessBridge.ermFor(archive.descriptor)
-                erm.partitions.any { model -> model.type == "tweaker" }
+                archive.runtimeModel.partitions.any { model -> model.type == "tweaker" }
             }
             .map { archive ->
                 UberParentRequest(
                     PartitionArtifactRequest(
                         archive.descriptor,
                         "tweaker",
-                        rootEnvironment.name
                     ),
                     resolver.accessBridge.repositoryFor(archive.descriptor),
                     resolver.partitionResolver
@@ -555,7 +575,7 @@ open class DefaultExtensionInitializer(
             }.getOrNull()
         } ?: HashMap()
 
-        val currentFingerprint = extension.build.parents.mapTo(HashSet()) { it.descriptor.name }
+        val currentFingerprint = parents.mapTo(HashSet()) { it.descriptor.name }
 
         if (fingerprint[extension.project.path]?.finger != currentFingerprint) {
             val uberGradle = graph.get(
@@ -594,7 +614,7 @@ open class DefaultExtensionInitializer(
                 }
             }
 
-            val plugins = extension.build.parents
+            val plugins = parents
                 .mapNotNull { archive ->
                     uberGradle.access
                         .targets
@@ -604,13 +624,13 @@ open class DefaultExtensionInitializer(
                         .filterIsInstance<ExtensionPartitionContainer<GradlePartitionNode, *>>()
                         .find { container -> container.descriptor.extension == archive.descriptor }
                 }
-                .reversed()
-                .filterDuplicates()
-                .map { it.metadata }
-                .filterIsInstance<GradlePartitionMetadata>()
-                .map { it.entrypoint }
+                .mapNotNull { e ->
+                    (e.metadata as? GradlePartitionMetadata)?.entrypoint?.let {
+                        e.descriptor.extension to it
+                    }
+                }.toMap()
 
-            val tweakers = extension.build.parents
+            val tweakers = parents
                 .mapNotNull { archive ->
                     uberGradle.access
                         .targets
@@ -620,19 +640,23 @@ open class DefaultExtensionInitializer(
                         .filterIsInstance<ExtensionPartitionContainer<TweakerPartitionNode, *>>()
                         .find { container -> container.descriptor.extension == archive.descriptor }
                 }
-                .reversed()
-                .filterDuplicates()
-                .map { it.metadata }
-                .filterIsInstance<TweakerPartitionMetadata>()
-                .map { it.tweakerClass }
+                .mapNotNull { e ->
+                    (e.metadata as? TweakerPartitionMetadata)?.tweakerClass?.let {
+                        e.descriptor.extension to it
+                    }
+                }.toMap()
 
             fingerprint[extension.project.path] = BuildFingerprint(
                 currentFingerprint,
                 filteredArchiveTree.mapTo(HashSet()) {
                     it.value.descriptor.name
                 },
-                plugins,
-                tweakers
+                parents.associate {
+                    it.descriptor.name to BuildFingerprint.ParentMetadata(
+                        plugins[it.descriptor],
+                        tweakers[it.descriptor]
+                    )
+                }
             )
             buildFingerprint.make()
 
@@ -646,122 +670,139 @@ open class DefaultExtensionInitializer(
         return fingerprint[extension.project.path]!!
     }
 
-    private suspend fun tweakRoot(
+    private fun deleteMock() {
+        mock.archives.deleteAll()
+    }
+
+    private fun tweakRoot(
         extension: ExtframeworkExtension
     ) {
-        val env = extension.defaultEnvironment
+        val env = extension.rootEnvironment
 
-        env += SourceDependencyTypeContainer(extension.sourcesGraph)
-        env[SourceDependencyTypeContainer].register(
-            "simple-maven",
-            MavenSourceProvider(
-                env[dependencyTypesAttrKey].container.get("simple-maven")
-                        as DependencyResolverProvider<*, SimpleMavenArtifactRequest, *>
-            )
+        env += ExtensionLoader(extension.worker.dataDir, extension)
+        val sourcesManager = DefaultSourcesManager(
+            SourcesArchiveGraph(
+                extension.worker.dataDir resolve "archives",
+            ),
+            SourcePartitionResolver(extension.rootEnvironment)
         )
+        env += sourcesManager
 
-        env[partitionLoadersAttrKey]
-            .container
-            .register("gradle", GradlePartitionLoader())
+        env += ObjectContainerAttribute(sourceDependencyTypesAttrKey)
+        val mavenSourceProvider = MavenSourceProvider(
+            env[dependencyTypesAttrKey].container["simple-maven"]
+                    as DependencyResolverProvider<*, SimpleMavenArtifactRequest, *>
+        )
+        env[sourceDependencyTypesAttrKey].container.register(
+            mavenSourceProvider
+        )
+        sourcesManager.graph.resolvers.register(mavenSourceProvider.resolver)
+        sourcesManager.graph.resolvers.register(sourcesManager.partitionResolver)
 
-        env.set(MutableObjectSetAttribute(environmentEmitters))
+        env += ObjectContainerAttribute(partitionLoadersAttrKey)
+        env[partitionLoadersAttrKey].container
+            .apply {
+                register(GradlePartitionLoader())
+                register(TweakerPartitionLoader())
+            }
+    }
 
-        env.set(MutableObjectSetAttribute(environmentConfigurators))
+    private class DefaultEntrypoint : GradleEntrypoint {
+        override suspend fun configure(
+            extension: ExtframeworkExtension,
+            helper: GradleEntrypoint.Helper
+        ) {
+            val environment = extension.rootEnvironment
 
-        env[environmentConfigurators] += object : BuildEnvironmentConfigurator {
-            override suspend fun configure(
-                environment: BuildEnvironment,
-                helper: BuildEnvironmentConfigurator.Helper
-            ) {
-                val tweaker = environment.extension.partitions.findByName("tweaker")
-                if (tweaker != null) {
-                    val partitionRequest = PartitionArtifactRequest(
-                        environment.extension.model.descriptor.partition(
-                            "tweaker",
-                            environment.extension.defaultEnvironment.name
-                        )
+            val loader = environment[ExtensionLoader]
+            val sources = environment[SourcesManager]
+
+            val tweaker = environment.extension.partitions.findByName("tweaker")
+            if (tweaker != null) {
+                val partitionRequest = PartitionArtifactRequest(
+                    environment.extension.model.descriptor.partition(
+                        "tweaker",
                     )
-
-                    // ------ Dependencies ------
-                    val dependencies = environment.extension.loader.graph.cache(
-                        partitionRequest,
-                        helper.repository,
-                        environment.extension.loader.extensionResolver.partitionResolver
-                    ).parents.flatMap { it.toList() }
-
-                    helper.attachDependencies(
-                        tweaker,
-                        dependencies
-                    )
-
-                    // ------ Sources ------
-                    environment.extension.sourcesGraph.cache(
-                        partitionRequest,
-                        helper.repository,
-                        environment.extension.partitionSourceResolver
-                    ).parents.flatMap { it.toList() }
-                }
-
-                val gradle = environment.extension.partitions.findByName(
-                    "gradle"
                 )
 
-                if (gradle != null) {
-                    val partitionRequest = PartitionArtifactRequest(
-                        environment.extension.model.descriptor.partition(
-                            "gradle",
-                            environment.extension.defaultEnvironment.name
-                        )
+                // ------ Dependencies ------
+                val dependencies = loader.graph.cache(
+                    partitionRequest,
+                    helper.repository,
+                    loader.extensionResolver.partitionResolver
+                ).parents.flatMap { it.toList() }
+
+                helper.attachDependencies(
+                    tweaker,
+                    dependencies
+                )
+
+                // ------ Sources ------
+                sources.graph.cache(
+                    partitionRequest,
+                    helper.repository,
+                    sources.partitionResolver
+                ).parents.flatMap { it.toList() }
+            }
+
+            val gradle = environment.extension.partitions.findByName(
+                "gradle"
+            )
+
+            if (gradle != null) {
+                val partitionRequest = PartitionArtifactRequest(
+                    environment.extension.model.descriptor.partition(
+                        "gradle",
                     )
+                )
 
-                    // ------ Dependencies ------
-                    val dependencies = environment.extension.loader.graph.cache(
-                        partitionRequest,
-                        helper.repository,
-                        environment.extension.loader.extensionResolver.partitionResolver
-                    ).parents.flatMap { it.toList() }
+                // ------ Dependencies ------
+                val dependencies = loader.graph.cache(
+                    partitionRequest,
+                    helper.repository,
+                    loader.extensionResolver.partitionResolver
+                ).parents.flatMap { it.toList() }
 
-                    helper.attachDependencies(
-                        gradle,
-                        dependencies
-                    )
+                helper.attachDependencies(
+                    gradle,
+                    dependencies
+                )
 
-                    // ------ Sources ------
-                    environment.extension.sourcesGraph.cache(
-                        partitionRequest,
-                        helper.repository,
-                        environment.extension.partitionSourceResolver
-                    ).parents.flatMap { it.toList() }
-                }
+                // ------ Sources ------
+                sources.graph.cache(
+                    partitionRequest,
+                    helper.repository,
+                    sources.partitionResolver
+                ).parents.flatMap { it.toList() }
             }
         }
     }
 
-    private val mavenConstraintNegotiator = MavenConstraintNegotiator()
-    private val packagedDependencies = parsePackagedDependencies().mapTo(HashSet()) {
-        mavenConstraintNegotiator.classify(it)
-    }
+//    private val mavenConstraintNegotiator = MavenConstraintNegotiator()
+//    private val packagedDependencies = parsePackagedDependencies().mapTo(HashSet()) {
+//        mavenConstraintNegotiator.classify(it)
+//    }
 
-    private fun isDescriptorPackaged(
-        descriptor: ArtifactMetadata.Descriptor
-    ): Boolean {
-        return packagedDependencies.contains(
-            mavenConstraintNegotiator.classify(
-                descriptor as? SimpleMavenDescriptor ?: return false
-            )
-        )
-    }
+//    private fun isDescriptorPackaged(
+//        descriptor: ArtifactMetadata.Descriptor
+//    ): Boolean {
+//        return packagedDependencies.contains(
+//            mavenConstraintNegotiator.classify(
+//                descriptor as? SimpleMavenDescriptor ?: return false
+//            )
+//        )
+//    }
 
-    private fun parsePackagedDependencies(): Set<SimpleMavenDescriptor> {
-        val dependencies: java.util.HashSet<SimpleMavenDescriptor> =
-            ExtframeworkPlugin::class.java.getResourceAsStream("/dependencies.txt")?.use {
-                val fileStr = String(it.readInputStream())
-                fileStr.split("\n").toSet()
-            }?.filterNot { it.isBlank() }?.mapTo(HashSet()) { SimpleMavenDescriptor.parseDescription(it)!! }
-                ?: throw IllegalStateException("Cant load dependencies?")
-
-        return dependencies
-    }
+//    private fun parsePackagedDependencies(): Set<SimpleMavenDescriptor> {
+//        val dependencies: java.util.HashSet<SimpleMavenDescriptor> =
+//            ExtframeworkPlugin::class.java.getResourceAsStream("/dependencies.txt")?.use {
+//                val fileStr = String(it.readInputStream())
+//                fileStr.split("\n").toSet()
+//            }?.filterNot { it.isBlank() }?.mapTo(HashSet()) { SimpleMavenDescriptor.parseDescription(it)!! }
+//                ?: throw IllegalStateException("Cant load dependencies?")
+//
+//        return dependencies
+//    }
 
     private fun toRepository(
         config: ExtensionConfig,
@@ -811,8 +852,9 @@ open class DefaultExtensionInitializer(
     ) : DependencyType {
         override fun toNotation(extension: ExtframeworkExtension): Any {
             // TODO in this configuration maven local sources wont ever get attached.
-            if (path.startsWith(extension.loader.graph.path)) {
-                val relativePath = path.removePrefix(extension.loader.graph.path)
+            val rootPath = extension.rootEnvironment[ExtensionLoader].graph.path
+            if (path.startsWith(rootPath)) {
+                val relativePath = path.removePrefix(rootPath)
                 val extension = relativePath.extension
 
                 // TODO im not sure if this is expected behaviour from gradle:
@@ -830,7 +872,12 @@ open class DefaultExtensionInitializer(
     private data class BuildFingerprint(
         val finger: Set<String>,
         val content: Set<String>,
-        val plugins: List<String>,
-        val tweakers: List<String>
-    )
+        // String should be parseable to ExtensionDescriptor
+        val parents: Map<String, ParentMetadata>
+    ) {
+        data class ParentMetadata(
+            val plugin: String?,
+            val tweaker: String?,
+        )
+    }
 }

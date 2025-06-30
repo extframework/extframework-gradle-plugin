@@ -1,12 +1,14 @@
 package dev.extframework.gradle.util
 
 import dev.extframework.gradle.api.ExtframeworkExtension
+import dev.extframework.gradle.api.source.SourcesManager
 import dev.extframework.gradle.publish.DefaultExtensionPublication
 import dev.extframework.gradle.publish.ExtensionPublication
 import dev.extframework.gradle.publish.registerPublishExtensionToLocalTask
 import dev.extframework.gradle.tasks.BuildBundle
 import dev.extframework.gradle.tasks.ExtensionPublishTask
 import dev.extframework.gradle.tasks.GenerateErm
+import dev.extframework.tooling.api.ExtensionLoader
 import org.gradle.api.Project
 import org.gradle.api.plugins.JvmEcosystemPlugin
 import org.gradle.api.publish.PublishingExtension
@@ -53,6 +55,9 @@ internal fun setupProject(
 
     // Add flat dir so we can add sources / classes
     project.repositories.flatDir {
-        it.dirs(extframework.sourcesGraph.path.toString(), extframework.loader.graph.path.toString())
+        it.dirs(
+            extframework.rootEnvironment[SourcesManager].graph.path.toString(),
+            extframework.rootEnvironment[ExtensionLoader].graph.path.toString()
+        )
     }
 }
