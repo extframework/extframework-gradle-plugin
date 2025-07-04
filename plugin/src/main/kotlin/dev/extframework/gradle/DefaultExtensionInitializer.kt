@@ -285,7 +285,6 @@ open class DefaultExtensionInitializer(
 
                     environment[ExtensionLoader].tweak(
                         parents + parent.node,
-                        environment
                     )
                 }
             })

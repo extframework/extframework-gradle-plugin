@@ -73,19 +73,19 @@ internal fun ExtensionLoader(
         environment,
     )
 
-    return GradleExtensionLoader(resolver, graph, owner)
+    return GradleExtensionLoader(resolver, graph, owner, owner.rootEnvironment)
 }
 
 private open class GradleExtensionLoader(
     override val extensionResolver: GradleExtensionResolver,
     graph: ArchiveGraph,
-    private val extension: ExtframeworkExtension
-) : DefaultExtensionLoader(extensionResolver, graph) {
+    private val extension: ExtframeworkExtension,
+    environment: ExtensionEnvironment
+) : DefaultExtensionLoader(extensionResolver, graph, environment) {
     protected open val tweaked: MutableSet<ExtensionDescriptor> = HashSet()
 
     override suspend fun tweak(
         extensions: List<ExtensionNode>,
-        environment: ExtensionEnvironment
     ) {
         val extensionDescriptors = extensions.mapTo(HashSet()) { it.descriptor }
         // This is copied from the TweakerPartitionLoader which is just messy, there should be a better way to do this.
@@ -128,7 +128,8 @@ private open class GradleExtensionLoader(
             environment
         ),
         ArchiveGraphView { reference.graph },
-        reference.extension
+        reference.extension,
+        environment
     ) {
         override var isValid: Boolean = true
         override val key: ExtensionEnvironment.Attribute.Key<*> = ExtensionLoader
