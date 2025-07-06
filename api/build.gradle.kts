@@ -1,16 +1,16 @@
-import dev.extframework.gradle.common.*
+import com.kaolinmc.gradle.common.*
 
 plugins {
     kotlin("jvm")
-    id("dev.extframework.common")
+    id("com.kaolinmc.common")
 }
 
-group = "dev.extframework"
+group = "com.kaolinmc"
 version = "1.1.2-BETA"
 
 repositories {
     mavenCentral()
-    extFramework()
+    kaolin()
 }
 
 dependencies {
@@ -38,7 +38,7 @@ kotlin {
 common {
     publishing {
         repositories {
-            extFramework(credentials = propertyCredentialProvider)
+            kaolin(credentials = propertyCredentialProvider)
         }
 
         publication {
@@ -50,7 +50,7 @@ common {
             commonPom {
                 packaging = "jar"
 
-                withExtFrameworkRepo()
+                withKaolinRepo()
                 defaultDevelopers()
                 gnuLicense()
             }

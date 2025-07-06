@@ -1,29 +1,28 @@
-//import dev.extframework.core.main.main
-//import dev.extframework.core.main.main
-import dev.extframework.gradle.common.extFramework
-import dev.extframework.gradle.common.toolingApi
-//import dev.extframework.minecraft.minecraft
-//import dev.extframework.minecraft.task.LaunchMinecraft
-//import dev.extframework.minecraft.MojangNamespaces
-//import dev.extframework.minecraft.task.LaunchMinecraft
+//import com.kaolinmc.core.main.main
+//import com.kaolinmc.core.main.main
+import com.kaolinmc.gradle.common.*
+//import com.kaolinmc.minecraft.minecraft
+//import com.kaolinmc.minecraft.task.LaunchMinecraft
+//import com.kaolinmc.minecraft.MojangNamespaces
+//import com.kaolinmc.minecraft.task.LaunchMinecraft
 
 plugins {
     kotlin("jvm")
     id("maven-publish")
-    id("dev.extframework")
-    id("dev.extframework.common")
+    id("kaolin.kiln")
+    id("com.kaolinmc.common")
 }
 
-group = "dev.extframework.extension"
+group = "com.kaolinmc.extension"
 version = "1.0-BETA"
 
 repositories {
     mavenCentral()
     mavenLocal()
     maven {
-        url = uri("https://repo.extframework.dev/registry")
+        url = uri("https://repo.kaolinmc.com/registry")
     }
-    extFramework()
+    kaolin()
 }
 
 //val launch by tasks.registering(LaunchMinecraft::class) {
@@ -42,13 +41,13 @@ extension {
     }
     partitions {
 //        main {
-//            extensionClass = "dev.extframework.extension.test.Test2Entrypoint"
+//            extensionClass = "com.kaolinmc.extension.test.Test2Entrypoint"
 //            dependencies {
 //            }
 //        }
 //        minecraft("some_version") {
 //            mappings = MojangNamespaces.deobfuscated
-//            entrypoint = "dev.extframework.extension.test2.Class"
+//            entrypoint = "com.kaolinmc.extension.test2.Class"
 //            dependencies {
 //                minecraft("1.21.4")
 //            }
@@ -56,14 +55,14 @@ extension {
 //        }
 //        minecraft("second_version") {
 //            mappings = MojangNamespaces.deobfuscated
-//            entrypoint = "dev.extframework.extension.test2.Class"
+//            entrypoint = "com.kaolinmc.extension.test2.Class"
 //            dependencies {
 //                minecraft("1.21")
 //            }
 //            supportVersions("1.21")
 //        }
         tweaker {
-            tweakerClass = "dev.extframework.extensions.example.test2.Tweaker2Entry"
+            tweakerClass = "com.kaolinmc.extensions.example.test2.Tweaker2Entry"
             dependencies {
                 implementation(toolingApi())
             }

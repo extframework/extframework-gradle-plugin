@@ -1,19 +1,19 @@
-import dev.extframework.gradle.common.*
+import com.kaolinmc.gradle.common.*
 
 plugins {
     `java-gradle-plugin`
     kotlin("jvm")
 
     id("com.gradle.plugin-publish")
-    id("dev.extframework.common")
+    id("com.kaolinmc.common")
 }
 
-group = "dev.extframework"
-version = "1.4.2"
+group = "com.kaolinmc"
+version = "0.1"
 
 repositories {
     mavenCentral()
-    extFramework()
+    kaolin()
 }
 
 dependencies {
@@ -22,7 +22,6 @@ dependencies {
     implementation(toolingApi())
     implementation(artifactResolver())
     implementation(artifactResolverMaven())
-    implementation(archiveMapper())
     implementation(archives())
     implementation(commonUtil())
     implementation(objectContainer())
@@ -55,14 +54,14 @@ dependencies {
 val listAllDependencies by tasks.registering(ListAllDependencies::class)
 
 gradlePlugin {
-    website = "https://github.com/extframework"
-    vcsUrl = "https://github.com/extframework/extframework-gradle-plugin"
+    website = "https://github.com/kaolinmc"
+    vcsUrl = "https://github.com/kaolinmc/kiln"
     plugins {
-        create("extframework") {
-            id = "dev.extframework"
-            implementationClass = "dev.extframework.gradle.ExtframeworkPlugin"
-            displayName = "Extframework Gradle plugin"
-            description = "Extframework Gradle plugin"
+        create("kaolin") {
+            id = "kaolin.kiln"
+            implementationClass = "com.kaolinmc.kiln.KaolinKiln"
+            displayName = "Kaolin Kiln"
+            description = "Kaolin Kiln"
         }
     }
 }
@@ -75,7 +74,7 @@ common {
     defaultJavaSettings()
     publishing {
         repositories {
-            extFramework(credentials = propertyCredentialProvider, type = RepositoryType.RELEASES)
+            kaolin(credentials = propertyCredentialProvider, type = RepositoryType.RELEASES)
         }
     }
 }
@@ -83,7 +82,7 @@ common {
 publishing {
     publications {
         create<MavenPublication>("pluginMaven") {
-            artifactId = "gradle-plugin"
+            artifactId = "kiln"
         }
     }
 }
@@ -129,7 +128,7 @@ abstract class ListAllDependencies : DefaultTask() {
             }
 
         // Resolved dependencies from gradle do not have local artifact IDs correct
-        set.add("dev.extframework:gradle-api:1")
+        set.add("com.kaolinmc:gradle-api:1")
 
         set.forEach {
             outputFile.appendText("$it\n")

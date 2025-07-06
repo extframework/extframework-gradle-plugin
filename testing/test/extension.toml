@@ -1,4 +1,4 @@
 [parents]
-#minecraft = { group = "dev.extframework.core", version = "1.0.3-BETA", use = "local" }
-#main = { group = "dev.extframework.core", version = "1.0.1-BETA", use = "local" }
+#minecraft = { group = "com.kaolinmc.core", version = "1.0.3-BETA", use = "local" }
+#main = { group = "com.kaolinmc.core", version = "1.0.1-BETA", use = "local" }
 ":test-2" = { isBuild = true }

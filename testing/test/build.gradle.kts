@@ -1,29 +1,28 @@
-import dev.extframework.gradle.common.extFramework
-import dev.extframework.gradle.common.toolingApi
+import com.kaolinmc.gradle.common.*
 
 plugins {
     kotlin("jvm")
     id("maven-publish")
-    id("dev.extframework")
-    id("dev.extframework.common")
+    id("kaolin.kiln")
+    id("com.kaolinmc.common")
 }
 
-group = "dev.extframework.extension"
+group = "com.kaolinmc.extension"
 version = "1.0-BETA"
 
 repositories {
     mavenLocal()
     mavenCentral()
     maven {
-        url = uri("https://repo.extframework.dev/registry")
+        url = uri("https://repo.kaolinmc.com/registry")
     }
-    extFramework()
+    kaolin()
 }
 
 extension {
     partitions {
         tweaker {
-            tweakerClass = "dev.extframework.extensions.test2.TweakerTest2"
+            tweakerClass = "com.kaolinmc.extensions.test2.TweakerTest2"
             dependencies {
                implementation(toolingApi())
             }

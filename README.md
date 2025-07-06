@@ -1,13 +1,13 @@
 <a id="readme-top"></a>
 ## ExtensionFramework Gradle Plugin
-[![Latest Stable Version](https://img.shields.io/github/v/release/extframework/extframework-gradle-plugin?include_prereleases)](https://github.com/extframework/extframework-gradle-plugin)
-[![Top Language](https://img.shields.io/github/languages/top/extframework/extframework-gradle-plugin)](https://github.com/extframework/extframework-gradle-plugin)
-[![Last Commit](https://img.shields.io/github/last-commit/extframework/extframework-gradle-plugin)](https://github.com/extframework/extframework-gradle-plugin)
-[![Issues Open](https://img.shields.io/github/issues/extframework/extframework-gradle-plugin)](https://github.com/extframework/extframework-gradle-plugin)
+[![Latest Stable Version](https://img.shields.io/github/v/release/kaolinmc/kiln?include_prereleases)](https://github.com/kaolinmc/kiln)
+[![Top Language](https://img.shields.io/github/languages/top/kaolinmc/kiln)](https://github.com/kaolinmc/kiln)
+[![Last Commit](https://img.shields.io/github/last-commit/kaolinmc/kiln)](https://github.com/kaolinmc/kiln)
+[![Issues Open](https://img.shields.io/github/issues/kaolinmc/kiln)](https://github.com/kaolinmc/kiln)
 
-[![Supported ](https://img.shields.io/badge/Mac-Supported-Green)](https://github.com/extframework/example-extension)
-[![Supported ](https://img.shields.io/badge/Windows-Supported-Green)](https://github.com/extframework/example-extension)
-[![Supported ](https://img.shields.io/badge/Linux-Unknown-aaaaaa)](https://github.com/extframework/example-extension)
+[![Supported ](https://img.shields.io/badge/Mac-Supported-Green)](https://github.com/kaolinmc/example-extension)
+[![Supported ](https://img.shields.io/badge/Windows-Supported-Green)](https://github.com/kaolinmc/example-extension)
+[![Supported ](https://img.shields.io/badge/Linux-Unknown-aaaaaa)](https://github.com/kaolinmc/example-extension)
 
 ## Getting Started
 The plugin is used in the build.gradle.kts file and its primary section is 'extension': 
@@ -61,7 +61,7 @@ The most important section is the "partitions" section.  There are three possibl
 deobfuscation mappings. coreApi() is always needed here as a dependency.  It takes a version string which must map the name of the 
 partition directory (under 'src').  Either way, a 'supportVersions' enumeration is needed which must map to specific MC versions.
 Currently there is no range specification, each version must be explicitly listed
-* **tweaker** - This is not commonly used but can be used to change how the extframework run.  One could add mew dependency systems, new types of partitions,
+* **tweaker** - This is not commonly used but can be used to change how Kaolin runs.  One could add mew dependency systems, new types of partitions,
 new types of MC mappings or new types of mixins.
 
 The other sections are either self-explanatory or TBD.
@@ -71,15 +71,15 @@ The other sections are either self-explanatory or TBD.
 ## Documentation
 Further documention can be found at:
 
-* Mixins in the Extension Loader project [https://github.com/extframework/ext-loader](https://github.com/extframework/ext-loader)
-* Full Example project [https://github.com/extframework/example-extension](https://github.com/extframework/example-extension)
+* Mixins in the Extension Loader project [https://github.com/kaolinmc/ext-loader](https://github.com/kaolinmc/ext-loader)
+* Full Example project [https://github.com/kaolinmc/example-extension](https://github.com/kaolinmc/example-extension)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Contact
 
 <ul>
-  <li> Discord: @durganmcbroom  or  <a href="https://discord.gg/3fP4N27JPH">@extframework discord</a></li>
+  <li> Discord: @durganmcbroom  or  <a href="https://discord.gg/3fP4N27JPH">@kaolin discord</a></li>
   <li> Linkedin: https://www.linkedin.com/in/durganmcbroom/ </li> 
   <li> Email: durganmcbroom@gmail.com </li>
 </ul>

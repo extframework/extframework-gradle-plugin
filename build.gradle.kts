@@ -1,15 +1,15 @@
-import dev.extframework.gradle.common.extFramework
-import dev.extframework.gradle.common.*
+import com.kaolinmc.gradle.common.*
+import com.kaolinmc.gradle.common.*
 
 plugins {
     kotlin("jvm") version "2.1.10"
 
-    id("dev.extframework.common") version "1.1.2"
+    id("com.kaolinmc.common") version "0.1"
 }
 
 repositories {
     mavenCentral()
-    extFramework()
+    kaolin()
 }
 
 tasks.wrapper {
@@ -17,7 +17,5 @@ tasks.wrapper {
 }
 
 allprojects {
-    repositories {
-        mavenLocal()
-    }
+    repositories {}
 }

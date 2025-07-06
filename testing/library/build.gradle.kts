@@ -4,7 +4,7 @@ plugins {
     idea
 }
 
-group = "dev.extframework"
+group = "com.kaolinmc"
 version = "1"
 
 repositories {
@@ -35,10 +35,5 @@ publishing {
 }
 
 dependencies {
-//    implementation(fileTree("/Users/durganmcbroom/IdeaProjects/extframework/yakclient-gradle/testing/library/fakeDir"))
     implementation(mapOf("name" to "test/dir/entrypoint-1.0-BETA"))
-//    implementation(mapOf("name" to "entrypoint-1.0-BETA", "classifier" to "sources"))
-//    implementation(name = "")
-//    implementation(fileTree("fakeDir"))
-//    implementation("test:entrypoint:1.0.1-BETA")
 }

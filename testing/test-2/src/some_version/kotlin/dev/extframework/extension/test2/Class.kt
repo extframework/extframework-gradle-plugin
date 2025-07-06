@@ -1,7 +1,7 @@
-package dev.extframework.extension.test2
+package com.kaolinmc.extension.test2
 
-import dev.extframework.core.entrypoint.Entrypoint
-import dev.extframework.extensions.example.test2.Tweaker2Entry
+import com.kaolinmc.core.entrypoint.Entrypoint
+import com.kaolinmc.extensions.example.test2.Tweaker2Entry
 
 class Class : Entrypoint() {
     override fun init() {
