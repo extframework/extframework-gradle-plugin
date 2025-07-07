@@ -1,4 +1,4 @@
-rootProject.name = "gradle"
+rootProject.name = "kiln"
 
 pluginManagement {
     repositories {

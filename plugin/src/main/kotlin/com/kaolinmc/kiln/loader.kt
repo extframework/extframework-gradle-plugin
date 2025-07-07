@@ -239,20 +239,20 @@ internal open class GradleExtensionResolver(
                 if (_accessBridge == null) {
                     _accessBridge = object : ExtensionResolver.AccessBridge {
                         override fun classLoaderFor(descriptor: ExtensionDescriptor): ExtensionClassLoader {
-                            return (extensionClassloaders[descriptor.toIdentifier()])
+                            return (extensionClassloaders[descriptor])
                                 ?: reference.accessBridge.classLoaderFor(
                                     descriptor
                                 )
                         }
 
                         override fun ermFor(descriptor: ExtensionDescriptor): ExtensionRuntimeModel {
-                            return extensionMetadata[descriptor.toIdentifier()]?.erm ?: reference.accessBridge.ermFor(
+                            return extensionMetadata[descriptor]?.erm ?: reference.accessBridge.ermFor(
                                 descriptor
                             )
                         }
 
                         override fun repositoryFor(descriptor: ExtensionDescriptor): ExtensionRepositorySettings {
-                            return extensionMetadata[descriptor.toIdentifier()]?.repository
+                            return extensionMetadata[descriptor]?.repository
                                 ?: reference.accessBridge.repositoryFor(
                                     descriptor
                                 )

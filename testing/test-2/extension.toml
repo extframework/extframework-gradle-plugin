@@ -1,4 +1,11 @@
-[parents]
+#[parents]
 
 #minecraft = { group = "com.kaolinmc.core", version = "1.0.6-BETA", use = "local" }
 #":extframework-gradle-plugin:test" = { isBuild = true }
+
+[repositories]
+custom = {network = "http://localhost:6969/registry"}
+
+[parents]
+mdk = { group = "com.kaolinmc", version = "1.0.1-BETA", use = "central" }
+minecraft = {group = "com.kaolinmc.core", version = "1.0.8-BETA", use = "network"}

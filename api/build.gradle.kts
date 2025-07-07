@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.kaolinmc"
-version = "1.1.2-BETA"
+version = "1.1.3-SNAPSHOT"
 
 repositories {
     mavenCentral()

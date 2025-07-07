@@ -4,7 +4,7 @@ import com.kaolinmc.gradle.common.*
 plugins {
     kotlin("jvm") version "2.1.10"
 
-    id("com.kaolinmc.common") version "0.1"
+    id("com.kaolinmc.common") version "0.1.1"
 }
 
 repositories {
@@ -17,5 +17,7 @@ tasks.wrapper {
 }
 
 allprojects {
-    repositories {}
+    repositories {
+        mavenLocal()
+    }
 }

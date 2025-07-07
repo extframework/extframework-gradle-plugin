@@ -146,7 +146,7 @@ abstract class GenerateErm : DefaultTask() {
             for (entry in configuredRepositories.custom) {
                 extensionRepositories.add(
                     mutableMapOf(
-                        "location" to configuredRepositories.custom[entry.value]!!,
+                        "location" to configuredRepositories.custom[entry.key]!!,
                         "type" to "default"
                     )
                 )
