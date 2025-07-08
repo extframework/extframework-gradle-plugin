@@ -110,6 +110,6 @@ class KaolinKiln : Plugin<Project> {
 
     companion object {
         const val KAOLIN_CENTRAL = "https://repo.kaolinmc.com/registry"
-        const val DEPENDENCIES_INIT_VERSION = "4"
+        const val DEPENDENCIES_INIT_VERSION = "5"
     }
 }
