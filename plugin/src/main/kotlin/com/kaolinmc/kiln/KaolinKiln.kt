@@ -1,5 +1,6 @@
 package com.kaolinmc.kiln
 
+import com.durganmcbroom.artifact.resolver.ResolutionContext
 import com.kaolinmc.common.util.make
 import com.kaolinmc.common.util.resolve
 import com.kaolinmc.kiln.api.EnvironmentInitializer

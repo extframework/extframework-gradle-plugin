@@ -11,6 +11,7 @@ import com.kaolinmc.boot.dependency.DependencyResolverProvider
 import com.kaolinmc.boot.monad.Tagged
 import com.kaolinmc.boot.monad.toList
 import com.kaolinmc.common.util.*
+import com.kaolinmc.extloader.exception.ExtLoaderExceptions
 import com.kaolinmc.extloader.extension.partition.TweakerPartitionLoader
 import com.kaolinmc.extloader.extension.partition.TweakerPartitionMetadata
 import com.kaolinmc.extloader.extension.partition.TweakerPartitionNode
@@ -107,18 +108,46 @@ open class DefaultExtensionInitializer(
                     attr.version ?: throw IllegalArgumentException(
                         "Parent version cannot be null unless 'isBuild' is set."
                     ),
-                ) to attr.repository
+                )
             }
 
         val loader = extension.rootEnvironment[ExtensionLoader]
 
-        loader.cache(
-            descriptors.associate { (descriptor, repository) ->
-                descriptor to toRepository(extension.configuration, repository)
-            }
-        )
+        val repositories = extension.configuration.repositories.map {
+            toRepository(extension.configuration, it)
+        }
 
-        val parents = loader.load(descriptors.map { it.first })
+        val resolved = HashMap<ExtensionDescriptor, ExtensionRepositorySettings>()
+
+        outer@ for (descriptor in descriptors) {
+            inner@ for (repo in repositories) {
+                try {
+                    loader.cache(
+                        mapOf(descriptor to repo)
+                    )
+
+                    resolved[descriptor] = repo
+
+                    continue@outer
+                } catch (e: StructuredException) {
+                    if (e.type == ExtLoaderExceptions.ExtensionNotFound) {
+                        continue@inner
+                    } else throw e
+                }
+            }
+
+            throw StructuredException(
+                ExtLoaderExceptions.ExtensionNotFound,
+                description = "Failed to find the extension: '${descriptor.name}'."
+            ) {
+                repositories asContext "Repositories"
+            }
+        }
+
+        // Creating the extension group with 'cache'. A bit hacky.
+        loader.cache(resolved)
+
+        val parents = loader.load(descriptors)
 
         val fingerprint = loader.applyGradle(extension, parents)
 
@@ -240,7 +269,8 @@ open class DefaultExtensionInitializer(
         }.toMap()
 
         val repository = ExtensionRepositorySettings.local(
-            path = mock.repository.toString()
+            path = mock.repository.toString(),
+//            requireResourceVerification = true
         )
 
         extension.rootEnvironment[ExtensionLoader].cache(
@@ -262,7 +292,9 @@ open class DefaultExtensionInitializer(
         for (parent in extension.build.parents) {
             val entrypoint = try {
                 val cls =
-                    extension.project.buildscript.classLoader.loadClass(parent.pluginName ?: continue) as Class<GradleEntrypoint>
+                    extension.project.buildscript.classLoader.loadClass(
+                        parent.pluginName ?: continue
+                    ) as Class<GradleEntrypoint>
 
                 cls.getConstructor().newInstance()
             } catch (e: Throwable) {
@@ -298,7 +330,8 @@ open class DefaultExtensionInitializer(
     ) : GradleEntrypoint.Helper {
         override val repository: ExtensionRepositorySettings =
             ExtensionRepositorySettings.local(
-                path = mock.repository.toString()
+                path = mock.repository.toString(),
+//                requireResourceVerification = true
             )
 
         override fun attachDependencies(
@@ -810,7 +843,8 @@ open class DefaultExtensionInitializer(
         return when (name) {
             "central" -> {
                 ExtensionRepositorySettings.default(
-                    url = KAOLIN_CENTRAL
+                    url = KAOLIN_CENTRAL,
+//                    requireResourceVerification = true
                 )
             }
 
@@ -820,7 +854,8 @@ open class DefaultExtensionInitializer(
                 checkNotNull(custom) { "Invalid repository $name" }
 
                 ExtensionRepositorySettings.default(
-                    url = custom
+                    url = custom,
+//                    requireResourceVerification = true
                 )
             }
         }

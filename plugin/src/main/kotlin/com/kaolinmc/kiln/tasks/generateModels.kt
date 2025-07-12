@@ -89,24 +89,25 @@ abstract class GenerateErm : DefaultTask() {
             val extensionRepositories = ArrayList<Map<String, String>>()
             val parents = ArrayList<ExtensionParent>()
             val configuredRepositories = configuration.repositories
+
             for ((name, attr) in configuration.parents) {
-                val repository = when (attr.repository) {
-                    "local" -> mutableMapOf(
-                        "location" to mavenLocal,
-                        "type" to "local"
-                    )
-
-                    "central" -> mutableMapOf(
-                        "location" to KAOLIN_CENTRAL,
-                        "type" to "default"
-                    )
-
-                    else -> mutableMapOf(
-                        "location" to configuredRepositories.custom[attr.repository]!!,
-                        "type" to "default"
-                    )
-                }
-                extensionRepositories.add(repository)
+//                val repository = when (attr.repository) {
+//                    "local" -> mutableMapOf(
+//                        "location" to mavenLocal,
+//                        "type" to "local"
+//                    )
+//
+//                    "central" -> mutableMapOf(
+//                        "location" to KAOLIN_CENTRAL,
+//                        "type" to "default"
+//                    )
+//
+//                    else -> mutableMapOf(
+//                        "location" to configuredRepositories.custom[attr.repository]!!,
+//                        "type" to "default"
+//                    )
+//                }
+//                extensionRepositories.add(repository)
 
                 val parent = if (attr.isProjectBuild) {
                     val parentProject = project.project(name)
@@ -126,7 +127,7 @@ abstract class GenerateErm : DefaultTask() {
 
                 parents.add(parent)
             }
-            // TODO want this?
+
             if (configuredRepositories.local) {
                 extensionRepositories.add(
                     mutableMapOf(

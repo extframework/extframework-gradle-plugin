@@ -101,7 +101,8 @@ class TestSourceDownloading {
             val repository = ExtensionRepositorySettings.default(
                 url = "https://repo.kaolinmc.com/registry",
                 true,
-                false
+                false,
+//                requireResourceVerification = true
             )
 
             loader.cache(

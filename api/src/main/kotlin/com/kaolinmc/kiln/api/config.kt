@@ -6,14 +6,19 @@ public data class ExtensionConfig(
 )
 
 public data class ExtensionRepoConfig(
-    val central: Boolean = false,
+    val central: Boolean = true,
     val local: Boolean = false,
     val custom: Map<String, String> = mapOf(),
-)
+) : Iterable<String> {
+    override fun iterator(): Iterator<String> = buildList {
+        if (central) add("central")
+        if (local) add("local")
+        addAll(custom.keys)
+    }.iterator()
+}
 
 public data class ExtensionParentAttrConfig(
     val group: String?,
     val version: String?,
-    val repository : String = "central",
-    val isProjectBuild : Boolean = false
+    val isProjectBuild: Boolean = false
 )

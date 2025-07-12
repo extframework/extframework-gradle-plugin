@@ -24,24 +24,6 @@ internal open class DefaultKaolinExtension(
         DefaultExtensionEnvironment("root"), this
     )
 
-//    override val loader: ExtensionLoader = ExtensionLoader(
-//        worker.dataDir,
-//        this
-//    )
-//
-//    override val defaultEnvironment = BuildEnvironment(
-//        loader.rootEnvironment.compose(
-//            "${project.path} root"
-//        ), this
-//    )
-//
-//    override val sourcesGraph: ArchiveGraph = SourcesArchiveGraph(worker.dataDir resolve "archives")
-//    override val partitionSourceResolver: PartitionResolver = SourcePartitionResolver(
-//        loader.extensionResolver.accessBridge,
-//        loader.environmentRegistry,
-//        defaultEnvironment.name
-//    )
-
     override val partitions = DefaultPartitionContainer(this)
     override val sourceSets: SourceSetContainer by lazy { project.extensions.getByType(SourceSetContainer::class.java) }
 
@@ -84,10 +66,6 @@ internal open class DefaultKaolinExtension(
 
     override fun finalizedBy(action: Action<KaolinExtension>) {
         finalizationActions.add(action)
-    }
-
-    init {
-//        loader.environmentRegistry.register(defaultEnvironment.name, defaultEnvironment)
     }
 
     override fun partitions(action: Action<NamedDomainPartitionContainer>) {
