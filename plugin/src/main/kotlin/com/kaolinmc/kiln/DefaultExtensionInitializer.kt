@@ -157,7 +157,6 @@ open class DefaultExtensionInitializer(
                 fingerprint.parents[it.descriptor.name]?.plugin,
                 fingerprint.parents[it.descriptor.name]?.tweaker
             )
-
         }
         extension.build.fingerprint += fingerprint.finger
         extension.build.content += fingerprint.content

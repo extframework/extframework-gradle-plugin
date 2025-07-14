@@ -13,7 +13,6 @@ import com.kaolinmc.common.util.resolve
 import com.kaolinmc.common.util.runCatching
 import com.kaolinmc.extloader.ArchiveGraphView
 import com.kaolinmc.extloader.DefaultExtensionLoader
-//import com.kaolinmc.extloader.RootExtensionEnvironment
 import com.kaolinmc.extloader.extension.DefaultExtensionResolver
 import com.kaolinmc.extloader.extension.ExtensionLayerClassLoader
 import com.kaolinmc.extloader.extension.partition.DefaultPartitionResolver
@@ -21,7 +20,6 @@ import com.kaolinmc.kiln.api.KaolinExtension
 import com.kaolinmc.kiln.api.descriptor
 import com.kaolinmc.`object`.ObjectContainerImpl
 import com.kaolinmc.tooling.api.ExtensionLoader
-//import com.kaolinmc.tooling.api.environment.EnvironmentRegistry
 import com.kaolinmc.tooling.api.environment.ExtensionEnvironment
 import com.kaolinmc.tooling.api.environment.ObjectContainerAttribute
 import com.kaolinmc.tooling.api.environment.SetView
@@ -188,14 +186,11 @@ internal open class GradleExtensionResolver(
     val mockBasePath: Path,
     classloader: ClassLoader,
     environment: ExtensionEnvironment,
-
-//    environmentRegistry: EnvironmentRegistry,
-//    defaultEnvironment: String,
 ) : DefaultExtensionResolver(
     classloader, environment
 ) {
     override val partitionResolver: DefaultPartitionResolver = object : DefaultPartitionResolver(
-        accessBridge, environment//environmentRegistry, defaultEnvironment
+        accessBridge, environment
     ) {
         override fun pathForDescriptor(descriptor: PartitionDescriptor, classifier: String, type: String): Path {
             val basePath = if (isMocked(descriptor.extension)) {
