@@ -2,6 +2,7 @@ import com.kaolinmc.gradle.common.*
 
 plugins {
     kotlin("jvm")
+
     id("maven-publish")
     id("kaolin.kiln")
     id("com.kaolinmc.common")
@@ -24,7 +25,7 @@ extension {
         tweaker {
             tweakerClass = "com.kaolinmc.extensions.test2.TweakerTest2"
             dependencies {
-               implementation(toolingApi())
+//               implementation(toolingApi())
             }
         }
         gradle {
